@@ -21,7 +21,7 @@ import { setClient } from "../slices/clientSlice"
 import { ActivityIndicator } from "react-native";
 
 const API_URL =
-  Platform.OS === "web" ? "http://localhost:5000" : "http://10.120.60.79:5000";
+  Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
 
 const SignUpVerification = () => {
   const [loading, setLoading] = useState(false);

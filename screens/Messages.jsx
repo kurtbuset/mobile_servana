@@ -15,6 +15,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Feather from "react-native-vector-icons/Feather";
+import { useSelector } from "react-redux";
+import axios from "axios";
+
+const API_URL = Platform.OS === 'web'
+  ? 'http://localhost:5000'
+  : 'http://10.0.2.2:5000';
 
 const Messages = () => {
   const navigation = useNavigation();
@@ -22,16 +28,14 @@ const Messages = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [showCannedMessages, setShowCannedMessages] = useState(false);
+  const clientId = useSelector((state) => state.client.data?.client_id);
 
   const flatListRef = useRef();
 
   const options = ["Billing", "Customer Service", "Sales"];
   const cannedMessages = [
-    "Can you describe the issue in detail?",
+    "I have an issue for the you know...?",
     "Please provide your account number.",
-    "Let me check that for you.",
-    "Thank you for your patience.",
-    "I will escalate this issue to our support team.",
   ];
 
   const handleOptionSelect = (option) => {
@@ -39,24 +43,32 @@ const Messages = () => {
     sendMessage(option);
   };
 
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     const content = text ?? inputMessage.trim();
-    if (!content) return;
+    if (!content || !clientId) return;
 
-    const now = new Date();
-    const newMessage = {
-      id: messages.length + 1,
-      sender: "user",
-      content,
-      timestamp: now.toISOString(),
-      displayTime: now.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    try {
+      // Call backend to insert message
+      const { data } = await axios.post(`${API_URL}/clientAccount/client`, {
+        message: content,
+        clientId,
+        deptId: 1, // optional, depends on your UI
+      });
 
-    setMessages((prev) => [newMessage, ...prev]);
-    setInputMessage("");
+      // Add to local UI
+      const now = new Date();
+      const newMessage = {
+        id: data.message.chat_id,
+        sender: "user",
+        content: data.message.chat_body,
+        timestamp: now.toISOString(),
+        displayTime: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [newMessage, ...prev]);
+      setInputMessage("");
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
   };
 
   const renderMessage = ({ item }) => (
@@ -72,8 +84,24 @@ const Messages = () => {
   );
 
   useEffect(() => {
-    console.log("Messages:", messages);
-  }, [messages]);
+    const fetchMessages = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/chat/${clientId}`);
+        const mappedMessages = data.messages.map(m => ({
+          id: m.chat_id,
+          sender: m.client_id ? "user" : "admin",
+          content: m.chat_body,
+          timestamp: m.chat_created_at,
+          displayTime: new Date(m.chat_created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+        setMessages(mappedMessages.reverse()); // oldest -> newest
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (clientId) fetchMessages();
+  }, [clientId]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -115,6 +143,59 @@ const Messages = () => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           />
+          {/* Canned Messages Modal */}
+          <Modal
+            visible={showCannedMessages}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowCannedMessages(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowCannedMessages(false)}>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "rgba(0,0,0,0.3)",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <View
+                  style={{
+                    backgroundColor: "#fff",
+                    padding: 20,
+                    borderTopLeftRadius: 20,
+                    borderTopRightRadius: 20,
+                    maxHeight: "50%",
+                  }}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}>
+                    Select a message
+                  </Text>
+
+                  <FlatList
+                    data={cannedMessages}
+                    keyExtractor={(item, index) => index.toString()}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => {
+                          sendMessage(item); // send selected message
+                          setShowCannedMessages(false); // close modal
+                        }}
+                        style={{
+                          paddingVertical: 12,
+                          paddingHorizontal: 10,
+                          borderBottomWidth: 1,
+                          borderColor: "#eee",
+                        }}
+                      >
+                        <Text style={{ fontSize: 15, color: "#000" }}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+
 
           {/* Options for initial selection */}
           {messages.length === 0 && !selectedOption && (

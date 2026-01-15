@@ -63,7 +63,7 @@ const getFlagEmoji = (countryCode) => {
 };
 
 const API_URL =
-  Platform.OS === "web" ? "http://localhost:5000" : "http://10.120.60.79:5000";
+  Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
 
 const SignUp = () => {
   const navigation = useNavigation();

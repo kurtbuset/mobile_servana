@@ -14,7 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 
 const API_URL =
-  Platform.OS === "web" ? "http://localhost:5000" : "http://10.120.60.79:5000";
+  Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
 
 export default function MyProfile() {
   const navigation = useNavigation();
@@ -56,7 +56,7 @@ export default function MyProfile() {
               source={require("../assets/userblank.jpg")}
               style={styles.profileImage}
             />
-            <Text style={styles.phoneNumber}>{client.client_number}</Text>
+            <Text style={styles.phoneNumber}>{client.client_country_code} {client.client_number}</Text>
           </View>
         </View>
 
@@ -64,7 +64,7 @@ export default function MyProfile() {
         <View style={styles.detailsContainer}>
           <ProfileItem
             label="Name"
-            value={`${client.prof_id.prof_firstname} ${client.prof_id.prof_middlename} ${client.prof_id.prof_lastname}`}
+            value={`${client.prof_id.prof_firstname} ${client.prof_id.prof_middlename || ""} ${client.prof_id.prof_lastname}`}
           />
           <ProfileItem
             label="Birthdate"

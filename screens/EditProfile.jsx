@@ -19,7 +19,7 @@ import { setClient } from '../slices/clientSlice';
 
 const API_URL = Platform.OS === 'web'
   ? 'http://localhost:5000'
-  : 'http://10.120.60.79:5000';
+  : 'http://10.0.2.2:5000';
 
 export default function EditProfile() {
   const navigation = useNavigation();

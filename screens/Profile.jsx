@@ -53,7 +53,7 @@ export default function ProfileScreen() {
               style={styles.cameraIcon}
             />
           </TouchableOpacity>
-          <Text style={styles.phoneNumber}>  { client.client_number}</Text>
+          <Text style={styles.phoneNumber}> {client.client_country_code} { client.client_number}</Text>
         </View>
       </View>
 
