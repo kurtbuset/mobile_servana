@@ -82,9 +82,9 @@ export default function Login() {
       return;
     }
 
-    console.log(selectedCountry.code)
-    console.log(phoneNumber)
-    console.log(password)
+    // console.log(selectedCountry.code)
+    // console.log(phoneNumber)
+    // console.log(password)
 
     setLoading(true); // 🔄 start loading
 
@@ -102,9 +102,6 @@ export default function Login() {
         }),
       });
 
-      console.log("Status:", response.status);
-      console.log("OK?:", response.ok);
-
 
       const result = await response.json();
 
@@ -115,7 +112,6 @@ export default function Login() {
       }
 
       await AsyncStorage.setItem("token", result.token);
-      console.log(result.client)
       dispatch(setClient({ client: result.client, token: result.token }));
 
       navigation.navigate("HomeScreen");

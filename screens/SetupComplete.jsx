@@ -5,13 +5,25 @@ import {
   StatusBar,
   TouchableOpacity,
 } from "react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Feather from "react-native-vector-icons/Feather";
+import { useDispatch } from "react-redux";
+import { setClient } from "../slices/clientSlice";
 
 const SetupComplete = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const dispatch = useDispatch();
+  const { client, token } = route.params || {};
+
+  useEffect(() => {
+    // Dispatch client data to Redux when component mounts
+    if (client && token) {
+      dispatch(setClient({ client, token }));
+    }
+  }, [client, token, dispatch]);
 
   const handleGetStarted = () => {
     // Navigate to Dashboard (HomeScreen which contains BottomTabs)
@@ -97,4 +109,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-

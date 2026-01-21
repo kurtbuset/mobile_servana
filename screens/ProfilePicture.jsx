@@ -21,7 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function ProfilePicture ()  {
   const navigation = useNavigation();
   const route = useRoute();
-  const { client_id, token } = route.params || {};
+  const { client_id, token, client } = route.params || {};
   const [image, setImage] = useState(null);
 
   const pickImage = async () => {
@@ -63,7 +63,7 @@ export default function ProfilePicture ()  {
   };
 
   const handleSkip = () => {
-    navigation.navigate("SetupComplete", { client_id, token });
+    navigation.navigate("SetupComplete", { client: client || { client_id }, token });
   };
 
   const handleContinue = async () => {
@@ -97,7 +97,7 @@ export default function ProfilePicture ()  {
         await AsyncStorage.setItem("profile", JSON.stringify(profile));
       }
 
-      navigation.navigate("SetupComplete", { client_id, token: authToken });
+      navigation.navigate("SetupComplete", { client: client || { client_id }, token: authToken });
     } catch (error) {
       console.error("Profile picture upload error:", error);
       Alert.alert(

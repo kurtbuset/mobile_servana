@@ -16,8 +16,6 @@ import { useNavigation } from "@react-navigation/native";
 import Feather from "react-native-vector-icons/Feather";
 import axios from "axios";
 import { useRoute } from "@react-navigation/native";
-import { useDispatch } from "react-redux";
-import { setClient } from "../slices/clientSlice"
 import { ActivityIndicator } from "react-native";
 
 const API_URL =
@@ -25,7 +23,6 @@ const API_URL =
 
 const SignUpVerification = () => {
   const [loading, setLoading] = useState(false);
-  const dispatch = useDispatch()
   const navigation = useNavigation();
   const [verificationCode, setVerificationCode] = useState("");
   const route = useRoute();
@@ -72,15 +69,12 @@ const SignUpVerification = () => {
         password
       });
 
-      // Save client to Redux
-      if (data.client) {
-        console.log(data)
-        dispatch(setClient({ client: data.client, token: data.token || null }));
-      }
-
-
       Alert.alert("Success", data.message);
-      navigation.navigate("ProfilePicture", { prof_id: data.client.prof_id });
+      navigation.navigate("ProfilePicture", { 
+        client_id: data.client.client_id, 
+        token: data.token,
+        client: data.client 
+      });
 
     } catch (err) {
       console.error(err);
