@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { useState, useRef, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -533,8 +534,9 @@ const Messages = () => {
 
           {/* Loading indicator */}
           {isLoadingChatGroup && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
-              <Text style={styles.promptText}>Loading...</Text>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#6A1B9A" />
+              <Text style={styles.loadingText}>Loading your conversation...</Text>
             </View>
           )}
 
@@ -696,5 +698,17 @@ const styles = StyleSheet.create({
   inputDisabled: {
     backgroundColor: "#e0e0e0",
     color: "#999",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: "#6A1B9A",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
