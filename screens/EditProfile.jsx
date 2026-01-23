@@ -24,6 +24,7 @@ const API_URL = Platform.OS === 'web'
 export default function EditProfile() {
   const navigation = useNavigation();
   const client = useSelector((state) => state.client.data);
+  const token = useSelector((state) => state.client.token);
   const dispatch = useDispatch();
   console.log(client)
   const [firstName, setFirstName] = useState(client.prof_id.prof_firstname || '');
@@ -40,7 +41,10 @@ export default function EditProfile() {
     try {
       const response = await fetch(`${API_URL}/clientAccount/${client.prof_id.prof_id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           prof_firstname: firstName,
           prof_middlename: middleName,
@@ -60,17 +64,18 @@ export default function EditProfile() {
             ...client,
             prof_id: data.profile // <-- data.profile is from backend
           },
-          token: data.token // keep the existing token
+          token: token // keep the existing token
         }));
 
-        alert('Success', 'Profile updated successfully!');
+        alert('Profile updated successfully!');
         navigation.goBack();
       } else {
-        alert('Error', data.message || 'Failed to update profile');
+        alert(data.message || 'Failed to update profile');
+        console.error('Update error:', data);
       }
     } catch (error) {
-      console.error(error);
-      alert('Error', 'An error occurred while updating profile');
+      console.error('Update error:', error);
+      alert('An error occurred while updating profile');
     }
   };
 
