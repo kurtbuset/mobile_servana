@@ -75,9 +75,13 @@ const Messages = () => {
     // Emit event to let server know mobile connected
     // socket.emit('mobileConnected', { chatGroupId });
 
-    // Join a room specific to this chat group  
+    // Join a room specific to this chat group with client info
     console.log('chatGroupId in messages.jsx: ', chatGroupId)
-    socket.emit('joinChatGroup', chatGroupId);
+    socket.emit('joinChatGroup', {
+      groupId: chatGroupId,
+      userType: 'client',
+      userId: clientId
+    });
 
     // Listen for incoming messages from admin
     socket.on('newMessage', (message) => {
@@ -116,6 +120,15 @@ const Messages = () => {
       }, 100);
     });
 
+    // Listen for user join/leave events
+    socket.on('userJoined', (data) => {
+      console.log(`${data.userType} joined chat_group ${data.chatGroupId}`);
+    });
+
+    socket.on('userLeft', (data) => {
+      console.log(`${data.userType} left chat_group ${data.chatGroupId}`);
+    });
+
     // Handle connection events
     socket.on('connect', () => {
       console.log('✅ Socket connected:', socket.id);
@@ -132,13 +145,15 @@ const Messages = () => {
     // Cleanup
     return () => {
       socket.off('newMessage');
+      socket.off('userJoined');
+      socket.off('userLeft');
       socket.off('connect');
       socket.off('connect_error');
       socket.off('disconnect');
       socket.disconnect();
       console.log("Socket disconnected");
     };
-  }, [chatGroupId]);
+  }, [chatGroupId, clientId]);
 
   const cannedMessages = [
     "I have an issue for the you know...?",
