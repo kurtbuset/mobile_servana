@@ -34,6 +34,10 @@ const Messages = () => {
   const [departments, setDepartments] = useState([]);
   const [chatGroupId, setChatGroupId] = useState(null);
   const [isLoadingChatGroup, setIsLoadingChatGroup] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const flatListRef = useRef();
 
@@ -50,7 +54,7 @@ const Messages = () => {
       
       if (msgDate !== lastDate) {
         messagesWithDates.push({
-          id: `date-${msgDate}`,
+          id: `date-${msgDate}-${Date.now()}`, // Add timestamp to ensure uniqueness
           type: 'date',
           date: msgDate,
         });
@@ -61,6 +65,118 @@ const Messages = () => {
     });
 
     return messagesWithDates;
+  };
+
+  // Load messages with pagination
+  const loadMessages = async (chatGroupId, before = null, append = false) => {
+    if (isLoadingMessages) return;
+    
+    try {
+      setIsLoadingMessages(true);
+      
+      let url = `${API_URL}/messages/group/${chatGroupId}?limit=10`;
+      if (before) {
+        url += `&before=${before}`;
+      }
+
+      const { data } = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Map messages to UI format with unique IDs
+      const mappedMessages = data.messages.map((m, index) => ({
+        id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`, // Ensure unique ID
+        sender: m.client_id ? "user" : "admin",
+        content: m.chat_body,
+        timestamp: m.chat_created_at,
+        displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      }));
+
+      if (append) {
+        // Store current scroll position before adding messages
+        const currentScrollOffset = flatListRef.current?._listRef?._scrollMetrics?.offset || 0;
+        
+        // Prepend older messages (for scroll-to-top loading)
+        setMessages(prev => {
+          const messagesOnly = prev.filter(m => m.type !== 'date');
+          
+          // Remove any duplicate messages by ID
+          const existingIds = new Set(messagesOnly.map(m => m.id));
+          const newUniqueMessages = mappedMessages.filter(m => !existingIds.has(m.id));
+          
+          const combined = [...newUniqueMessages, ...messagesOnly];
+          return addDateSeparators(combined);
+        });
+        
+        // Maintain scroll position after messages are added
+        setTimeout(() => {
+          if (flatListRef.current && mappedMessages.length > 0) {
+            // Calculate new scroll position to maintain user's view
+            const messageHeight = 60; // Approximate height per message
+            const newOffset = currentScrollOffset + (mappedMessages.length * messageHeight);
+            
+            flatListRef.current.scrollToOffset({
+              offset: newOffset,
+              animated: false
+            });
+          }
+        }, 100);
+        
+        console.log(`Loaded ${mappedMessages.length} older messages`);
+      } else {
+        // Initial load - scroll to bottom
+        setMessages(addDateSeparators(mappedMessages));
+        
+        // Scroll to bottom for initial load
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 100);
+      }
+
+      // Update pagination state
+      setHasMoreMessages(data.hasMore);
+      if (mappedMessages.length > 0) {
+        setOldestMessageTimestamp(mappedMessages[0].timestamp);
+      }
+
+    } catch (error) {
+      console.error("Error loading messages:", error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  // Load more messages (pagination) - triggered when scrolling to top
+  const loadMoreMessages = async () => {
+    if (!hasMoreMessages || isLoadingMessages || !oldestMessageTimestamp || !chatGroupId) {
+      return;
+    }
+    
+    console.log('Auto-loading more messages...');
+    await loadMessages(chatGroupId, oldestMessageTimestamp, true);
+  };
+
+  // Handle scroll events to detect when user reaches the top
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    
+    // Check if user scrolled to the top (within 50px threshold)
+    const isNearTop = contentOffset.y <= 50;
+    
+    // Check if user is at the bottom (within 50px threshold)
+    const isNearBottom = contentOffset.y >= (contentSize.height - layoutMeasurement.height - 50);
+    
+    // Update auto-scroll behavior based on user position
+    setShouldAutoScroll(isNearBottom);
+    
+    if (isNearTop && hasMoreMessages && !isLoadingMessages) {
+      loadMoreMessages();
+    }
   };
 
   // Messages.js - Add these changes
@@ -88,7 +204,7 @@ const Messages = () => {
       console.log('Received message:', message);
 
       const newMessage = {
-        id: message.chat_id,
+        id: message.chat_id ? `msg-${message.chat_id}` : `temp-${Date.now()}`,
         sender: message.client_id ? "user" : "admin",
         content: message.chat_body,
         timestamp: message.chat_created_at,
@@ -114,10 +230,12 @@ const Messages = () => {
         return addDateSeparators(updatedMessages);
       });
       
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      // Scroll to bottom only if user is at bottom
+      if (shouldAutoScroll) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
     });
 
     // Listen for user join/leave events
@@ -198,32 +316,9 @@ const Messages = () => {
           },
         });
 
-        // Chat group found - load messages
+        // Chat group found - load messages with pagination
         setChatGroupId(chatGroup.chat_group_id);
-
-        const { data: messagesData } = await axios.get(
-          `${API_URL}/messages/group/${chatGroup.chat_group_id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        // Map messages to UI format
-        const mappedMessages = messagesData.map((m) => ({
-          id: m.chat_id,
-          sender: m.client_id ? "user" : "admin",
-          content: m.chat_body,
-          timestamp: m.chat_created_at,
-          displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        }));
-
-        // Add date separators (already in chronological order)
-        setMessages(addDateSeparators(mappedMessages));
+        await loadMessages(chatGroup.chat_group_id);
         setSelectedOption("existing");
       } catch (error) {
         // No chat group found - fetch departments for selection
@@ -262,7 +357,7 @@ const Messages = () => {
 
       const now = new Date();
       const newMessage = {
-        id: data.chat_id,
+        id: data.chat_id ? `msg-${data.chat_id}` : `temp-${Date.now()}`,
         sender: "user",
         content: data.chat_body,
         timestamp: now.toISOString(),
@@ -273,15 +368,23 @@ const Messages = () => {
         // Remove date separators temporarily
         const messagesOnly = prev.filter(m => m.type !== 'date');
         
+        // Check for duplicates
+        const exists = messagesOnly.some(m => m.id === newMessage.id);
+        if (exists) {
+          return addDateSeparators(messagesOnly);
+        }
+        
         // Add new message at end (chronological order)
         const updatedMessages = [...messagesOnly, newMessage];
         return addDateSeparators(updatedMessages);
       });
 
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      // Scroll to bottom only if user is at bottom
+      if (shouldAutoScroll) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
 
       // Emit via socket for real-time updates to web
       socket.emit('sendMessageMobile', {
@@ -317,7 +420,7 @@ const Messages = () => {
 
       const now = new Date();
       const newMessage = {
-        id: data.chat_id,
+        id: data.chat_id ? `msg-${data.chat_id}` : `temp-${Date.now()}`,
         sender: "user",
         content: data.chat_body,
         timestamp: now.toISOString(),
@@ -328,6 +431,12 @@ const Messages = () => {
         // Remove date separators temporarily
         const messagesOnly = prev.filter(m => m.type !== 'date');
         
+        // Check for duplicates
+        const exists = messagesOnly.some(m => m.id === newMessage.id);
+        if (exists) {
+          return addDateSeparators(messagesOnly);
+        }
+        
         // Add new message at end (chronological order)
         const updatedMessages = [...messagesOnly, newMessage];
         return addDateSeparators(updatedMessages);
@@ -335,10 +444,12 @@ const Messages = () => {
       
       setInputMessage("");
 
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      // Scroll to bottom only if user is at bottom
+      if (shouldAutoScroll) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
 
       // Emit via socket for real-time updates to web
       socket.emit('sendMessageMobile', {
@@ -467,7 +578,45 @@ const Messages = () => {
             }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: 10
+            }}
+            ListHeaderComponent={() => (
+              hasMoreMessages && isLoadingMessages ? (
+                <View style={{ 
+                  alignItems: 'center',
+                  paddingVertical: 15,
+                  marginBottom: 10
+                }}>
+                  <ActivityIndicator size="small" color="#007AFF" />
+                  <Text style={{ 
+                    color: '#666', 
+                    fontSize: 12, 
+                    marginTop: 8,
+                    fontWeight: '500'
+                  }}>
+                    Loading older messages...
+                  </Text>
+                </View>
+              ) : hasMoreMessages ? (
+                <View style={{ 
+                  alignItems: 'center',
+                  paddingVertical: 10,
+                  marginBottom: 10
+                }}>
+                  <Text style={{ 
+                    color: '#999', 
+                    fontSize: 11, 
+                    fontWeight: '400'
+                  }}>
+                    Scroll up to load older messages
+                  </Text>
+                </View>
+              ) : null
+            )}
           />
           {/* Canned Messages Modal */}
           <Modal
@@ -665,18 +814,22 @@ const styles = StyleSheet.create({
   dateSeparatorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 16,
+    marginVertical: 20,
   },
   dateSeparatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#ddd",
+    backgroundColor: "#e0e0e0",
   },
   dateSeparatorText: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     color: "#666",
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
+    backgroundColor: "#f8f9fa",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   selectedBubble: {
     backgroundColor: "#6A1B9A",
