@@ -16,7 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Feather from "react-native-vector-icons/Feather";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import SecureStorage from "../utils/secureStorage";
 
 export default function PersonalInformation() {
   const navigation = useNavigation();
@@ -93,7 +93,7 @@ export default function PersonalInformation() {
         },
       };
 
-      const authToken = token || (await AsyncStorage.getItem("token"));
+      const authToken = token || (await SecureStorage.getToken());
       const response = await axios.post(
         `${BASE_URL}/client/profile`,
         profileData,
@@ -104,12 +104,12 @@ export default function PersonalInformation() {
         }
       );
 
-      // Save profile data to AsyncStorage
-      await AsyncStorage.setItem("profile", JSON.stringify(response.data.profile));
+      // Save profile data to SecureStorage
+      await SecureStorage.setProfile(response.data.profile);
 
       navigation.navigate("ProfilePicture", {
         client_id,
-        token: authToken,
+        // Token no longer passed via navigation params for security
       });
     } catch (error) {
       console.error("Profile save error:", error);

@@ -72,7 +72,7 @@ const SignUpVerification = () => {
       Alert.alert("Success", data.message);
       navigation.navigate("ProfilePicture", { 
         client_id: data.client.client_id, 
-        token: data.token,
+        // Token no longer passed via navigation for security
         client: data.client 
       });
 

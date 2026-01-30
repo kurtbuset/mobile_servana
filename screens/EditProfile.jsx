@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useSelector } from 'react-redux';
 import { useDispatch } from 'react-redux';
 import { setClient } from '../slices/clientSlice';
+import useSecureToken from '../hooks/useSecureToken';
 
 
 const API_URL = Platform.OS === 'web'
@@ -24,7 +25,7 @@ const API_URL = Platform.OS === 'web'
 export default function EditProfile() {
   const navigation = useNavigation();
   const client = useSelector((state) => state.client.data);
-  const token = useSelector((state) => state.client.token);
+  const { token } = useSecureToken(); // Get token from SecureStorage, not Redux
   const dispatch = useDispatch();
   console.log(client)
   const [firstName, setFirstName] = useState(client.prof_id.prof_firstname || '');
@@ -63,8 +64,8 @@ export default function EditProfile() {
           client: {
             ...client,
             prof_id: data.profile // <-- data.profile is from backend
-          },
-          token: token // keep the existing token
+          }
+          // Token no longer stored in Redux for security
         }));
 
         alert('Profile updated successfully!');

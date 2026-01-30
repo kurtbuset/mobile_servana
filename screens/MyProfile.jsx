@@ -12,6 +12,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
+import SecureLogoutButton from "../components/SecureLogoutButton";
 
 const API_URL =
   Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
@@ -88,6 +89,11 @@ export default function MyProfile() {
             value={client.prof_id.prof_postal_code}
           />
         </View>
+
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <SecureLogoutButton />
+        </View>
       </ScrollView>
     </View>
   );
@@ -163,5 +169,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#333",
+  },
+  logoutContainer: {
+    marginTop: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
   },
 });

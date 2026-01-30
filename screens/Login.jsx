@@ -22,9 +22,9 @@ import {
   getExampleNumber,
 } from "libphonenumber-js";
 import { ActivityIndicator } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch } from "react-redux";
 import { setClient } from "../slices/clientSlice";
+import SecureStorage from "../utils/secureStorage";
 
 const rawCountries = [
   { label: "US +1", code: "US", callingCode: "1" },
@@ -111,8 +111,8 @@ export default function Login() {
         return;
       }
 
-      await AsyncStorage.setItem("token", result.token);
-      dispatch(setClient({ client: result.client, token: result.token }));
+      await SecureStorage.setToken(result.token);
+      dispatch(setClient({ client: result.client })); // Token no longer passed to Redux
 
       navigation.navigate("HomeScreen");
     } catch (error) {

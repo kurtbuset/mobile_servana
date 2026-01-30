@@ -18,6 +18,7 @@ import Feather from "react-native-vector-icons/Feather";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import socket from "../socket";
+import useSecureToken from "../hooks/useSecureToken";
 
 const API_URL = Platform.OS === 'web'
   ? 'http://localhost:5000'
@@ -30,7 +31,7 @@ const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [showCannedMessages, setShowCannedMessages] = useState(false);
   const clientId = useSelector((state) => state.client.data?.client_id);
-  const token = useSelector((state) => state.client.token);
+  const { token } = useSecureToken(); // Get token from SecureStorage, not Redux
   const [departments, setDepartments] = useState([]);
   const [chatGroupId, setChatGroupId] = useState(null);
   const [isLoadingChatGroup, setIsLoadingChatGroup] = useState(true);
