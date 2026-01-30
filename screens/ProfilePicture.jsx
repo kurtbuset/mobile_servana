@@ -16,12 +16,15 @@ import Feather from "react-native-vector-icons/Feather";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 // import BASE_URL from "../apiConfig";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import SecureStorage from "../utils/secureStorage";
+
+import useSecureToken from "../hooks/useSecureToken";
 
 export default function ProfilePicture ()  {
   const navigation = useNavigation();
   const route = useRoute();
-  const { client_id, token, client } = route.params || {};
+  const { client_id, client } = route.params || {};
+  const { token } = useSecureToken(); // Get token from SecureStorage
   const [image, setImage] = useState(null);
 
   const pickImage = async () => {
@@ -63,7 +66,7 @@ export default function ProfilePicture ()  {
   };
 
   const handleSkip = () => {
-    navigation.navigate("SetupComplete", { client: client || { client_id }, token });
+    navigation.navigate("SetupComplete", { client: client || { client_id } });
   };
 
   const handleContinue = async () => {
@@ -73,7 +76,7 @@ export default function ProfilePicture ()  {
     }
 
     try {
-      const authToken = token || (await AsyncStorage.getItem("token"));
+      const authToken = token; // Token from SecureStorage hook
       
       // For mock backend, send the image URI directly
       // await axios.post(
@@ -89,15 +92,14 @@ export default function ProfilePicture ()  {
       //   }
       // );
 
-      // Update profile in AsyncStorage
-      const profileStr = await AsyncStorage.getItem("profile");
-      if (profileStr) {
-        const profile = JSON.parse(profileStr);
+      // Update profile in SecureStorage
+      const profile = await SecureStorage.getProfile();
+      if (profile) {
         profile.profile_picture = image;
-        await AsyncStorage.setItem("profile", JSON.stringify(profile));
+        await SecureStorage.setProfile(profile);
       }
 
-      navigation.navigate("SetupComplete", { client: client || { client_id }, token: authToken });
+      navigation.navigate("SetupComplete", { client: client || { client_id } });
     } catch (error) {
       console.error("Profile picture upload error:", error);
       Alert.alert(

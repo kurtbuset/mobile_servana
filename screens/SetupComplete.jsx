@@ -16,14 +16,14 @@ const SetupComplete = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
-  const { client, token } = route.params || {};
+  const { client } = route.params || {};
 
   useEffect(() => {
     // Dispatch client data to Redux when component mounts
-    if (client && token) {
-      dispatch(setClient({ client, token }));
+    if (client) {
+      dispatch(setClient({ client })); // Token no longer passed to Redux
     }
-  }, [client, token, dispatch]);
+  }, [client, dispatch]);
 
   const handleGetStarted = () => {
     // Navigate to Dashboard (HomeScreen which contains BottomTabs)

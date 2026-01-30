@@ -4,16 +4,19 @@ const clientSlice = createSlice({
   name: "client",
   initialState: {
     data: null,
-    token: null,
+    // Token removed from Redux for security - use SecureStorage instead
+    isAuthenticated: false,
   },
   reducers: {
     setClient: (state, action) => {
       state.data = action.payload.client;
-      state.token = action.payload.token;
+      state.isAuthenticated = true;
+      // Token no longer stored in Redux for security
     },
     clearClient: (state) => {
       state.data = null;
-      state.token = null;
+      state.isAuthenticated = false;
+      // Token cleared from SecureStorage via logout utilities
     },
   },
 });
