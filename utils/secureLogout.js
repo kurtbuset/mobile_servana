@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { clearClient } from '../slices/clientSlice';
 import SecureStorage from './secureStorage';
-import socket from '../socket';
+import { clearSocket } from '../socket';
 
 /**
  * Complete session cleanup - clears all user data
@@ -9,16 +9,18 @@ import socket from '../socket';
  */
 export const clearCompleteSession = async (dispatch = null) => {
   try {
-    socket.disconnect()
-    console.log('🔌 Socket disconnected during session clear');
+    // Clear socket and disconnect
+    clearSocket();
+    console.log('🔌 Socket cleared and disconnected during session clear');
     
     // Clear Redux state if dispatch is available
     if (dispatch) {
       dispatch(clearClient());
     }
     
-    // Clear all secure storage
+    // Clear all secure storage including token
     await SecureStorage.clear();
+    console.log('🔐 Token cleared from SecureStorage during logout');
       
     console.log('✅ Complete session cleared');
   } catch (error) {

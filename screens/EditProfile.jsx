@@ -28,19 +28,19 @@ export default function EditProfile() {
   const { token } = useSecureToken(); // Get token from SecureStorage, not Redux
   const dispatch = useDispatch();
   console.log(client)
-  const [firstName, setFirstName] = useState(client.prof_id.prof_firstname || '');
-  const [middleName, setMiddleName] = useState(client.prof_id.prof_middlename || '');
-  const [lastName, setLastName] = useState(client.prof_id.prof_lastname || '');
-  const [address, setAddress] = useState(client.prof_id.prof_address || '');
-  const [streetAddress, setStreetAddress] = useState(client.prof_id.prof_street_address || '');
-  const [regionInfo, setRegionInfo] = useState(client.prof_id.prof_region_info || '');
-  const [postalCode, setPostalCode] = useState(client.prof_id.prof_postal_code || '');
-  const [birthdate, setBirthdate] = useState(client.prof_id.prof_date_of_birth || '');
+  const [firstName, setFirstName] = useState(client?.prof_id?.prof_firstname || '');
+  const [middleName, setMiddleName] = useState(client?.prof_id?.prof_middlename || '');
+  const [lastName, setLastName] = useState(client?.prof_id?.prof_lastname || '');
+  const [address, setAddress] = useState(client?.prof_id?.prof_address || '');
+  const [streetAddress, setStreetAddress] = useState(client?.prof_id?.prof_street_address || '');
+  const [regionInfo, setRegionInfo] = useState(client?.prof_id?.prof_region_info || '');
+  const [postalCode, setPostalCode] = useState(client?.prof_id?.prof_postal_code || '');
+  const [birthdate, setBirthdate] = useState(client?.prof_id?.prof_date_of_birth || '');
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`${API_URL}/clientAccount/${client.prof_id.prof_id}`, {
+      const response = await fetch(`${API_URL}/clientAccount/${client?.prof_id?.prof_id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',

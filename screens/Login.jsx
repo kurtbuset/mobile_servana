@@ -116,6 +116,15 @@ export default function Login() {
       }
 
       await SecureStorage.setToken(result.token);
+      
+      // Display token in console
+      console.log("🔐 Token stored in SecureStorage:", result.token);
+      
+      // Clear and recreate socket with new token
+      const { clearSocket } = require('../socket');
+      clearSocket(); // Clear old socket
+      console.log('🔌 Socket cleared after login, will be recreated with new token');
+      
       dispatch(setClient({ client: result.client })); // Token no longer passed to Redux
 
       navigation.navigate("HomeScreen");

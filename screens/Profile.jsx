@@ -4,11 +4,13 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native"; // ✅ Added
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { clearCompleteSession } from "../utils/secureLogout";
 
 export default function ProfileScreen() {
   const [image, setImage] = useState(null);
   const navigation = useNavigation(); // ✅ Added
+  const dispatch = useDispatch();
   const client = useSelector((state) => state.client.data);
   const pickImage = async () => {
     const permissionResult =
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
               style={styles.cameraIcon}
             />
           </TouchableOpacity>
-          <Text style={styles.phoneNumber}> {client.client_country_code} { client.client_number}</Text>
+          <Text style={styles.phoneNumber}> {client?.client_country_code || ''} { client?.client_number || ''}</Text>
         </View>
       </View>
 
@@ -87,7 +89,10 @@ export default function ProfileScreen() {
       <View style={styles.logoutSection}>
         <TouchableOpacity
           style={styles.logoutButton}
-          onPress={() => navigation.replace("Login")} // ✅ Updated
+          onPress={async () => {
+            await clearCompleteSession(dispatch);
+            navigation.replace("Login");
+          }}
         >
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
