@@ -1,7 +1,31 @@
 import { Alert } from 'react-native';
 import { clearClient } from '../slices/clientSlice';
 import SecureStorage from './secureStorage';
-import { disconnectSocket } from '../socket';
+import socket from '../socket';
+
+/**
+ * Complete session cleanup - clears all user data
+ * Use this when switching users or during registration/login
+ */
+export const clearCompleteSession = async (dispatch = null) => {
+  try {
+    socket.disconnect()
+    console.log('🔌 Socket disconnected during session clear');
+    
+    // Clear Redux state if dispatch is available
+    if (dispatch) {
+      dispatch(clearClient());
+    }
+    
+    // Clear all secure storage
+    await SecureStorage.clear();
+      
+    console.log('✅ Complete session cleared');
+  } catch (error) {
+    console.error('❌ Session clear error:', error);
+    throw error;
+  }
+};
 
 /**
  * Secure logout utility function
@@ -9,18 +33,7 @@ import { disconnectSocket } from '../socket';
  */
 export const performSecureLogout = async (dispatch, navigation) => {
   try {
-    // Disconnect socket first to prevent any further communication
-    disconnectSocket();
-    console.log('🔌 Socket disconnected during logout');
-    
-    // Clear Redux state
-    dispatch(clearClient());
-    
-    // Clear secure storage
-    await SecureStorage.removeToken();
-    await SecureStorage.removeProfile();
-      
-    console.log('✅ Secure logout completed');
+    await clearCompleteSession(dispatch);
     
     // Navigate to login screen
     navigation.navigate('Login');
@@ -48,4 +61,4 @@ export const confirmSecureLogout = (dispatch, navigation) => {
   );
 };
 
-export default { performSecureLogout, confirmSecureLogout };
+export default { performSecureLogout, confirmSecureLogout, clearCompleteSession };

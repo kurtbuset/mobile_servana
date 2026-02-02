@@ -329,7 +329,16 @@ const Messages = () => {
 
   useEffect(() => {
     const initializeChat = async () => {
-      if (!token) return;
+      if (!token) {
+        console.log('No token available, user needs to login');
+        return;
+      }
+
+      // Validate that we have the correct client context
+      if (!clientId) {
+        console.error('No client ID available, session may be corrupted');
+        return;
+      }
 
       try {
         setIsLoadingChatGroup(true);
@@ -361,7 +370,7 @@ const Messages = () => {
     };
 
     initializeChat();
-  }, [token]);
+  }, [token, clientId]); // Added clientId to dependencies
 
   const sendMessageWithGroupId = async (text, groupId) => {
     if (!text || !token || !groupId) return;
