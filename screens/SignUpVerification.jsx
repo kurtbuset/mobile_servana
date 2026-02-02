@@ -17,6 +17,9 @@ import Feather from "react-native-vector-icons/Feather";
 import axios from "axios";
 import { useRoute } from "@react-navigation/native";
 import { ActivityIndicator } from "react-native";
+import { clearCompleteSession } from "../utils/secureLogout";
+import { useDispatch } from "react-redux";
+import { setClient } from "../slices/clientSlice";
 
 const API_URL =
   Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
@@ -26,6 +29,7 @@ const SignUpVerification = () => {
   const navigation = useNavigation();
   const [verificationCode, setVerificationCode] = useState("");
   const route = useRoute();
+  const dispatch = useDispatch();
   const { phone_country_code, phone_number, password, firstName, lastName, birthdate } = route.params;
 
 
@@ -51,6 +55,10 @@ const SignUpVerification = () => {
 
     try {
       setLoading(true);
+      
+      // Clear any existing session data before registration
+      await clearCompleteSession();
+      
       // Step 1: Verify OTP
       await axios.post(`${API_URL}/clientAccount/auth/verify-otp`, {
         phone_country_code,
@@ -69,10 +77,16 @@ const SignUpVerification = () => {
         password
       });
 
+      // Step 3: Store token in SecureStorage and set client in Redux
+      const SecureStorage = require('../utils/secureStorage').default;
+      await SecureStorage.setToken(data.token);
+      dispatch(setClient({ client: data.client }));
+      
+      console.log('✅ Registration successful, token stored securely, client set in Redux');
+
       Alert.alert("Success", data.message);
       navigation.navigate("ProfilePicture", { 
         client_id: data.client.client_id, 
-        // Token no longer passed via navigation for security
         client: data.client 
       });
 

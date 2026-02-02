@@ -200,13 +200,23 @@ const Messages = () => {
       userId: clientId
     });
 
-    // Listen for incoming messages from admin
-    socket.on('newMessage', (message) => {
-      console.log('Received message:', message);
+    // Listen for incoming messages (unified handler)
+    socket.on('receiveMessage', (message) => {
+      console.log('📨 Received message:', {
+        chat_id: message.chat_id,
+        sender_type: message.sender_type,
+        from_current_client: message.client_id === clientId
+      });
+
+      // Skip messages sent by current client (avoid duplicates)
+      if (message.client_id === clientId) {
+        console.log('⏭️ Skipping own message to avoid duplicate');
+        return;
+      }
 
       const newMessage = {
         id: message.chat_id ? `msg-${message.chat_id}` : `temp-${Date.now()}`,
-        sender: message.client_id ? "user" : "admin",
+        sender: message.sender_type === 'client' ? "user" : "admin",
         content: message.chat_body,
         timestamp: message.chat_created_at,
         displayTime: new Date(message.chat_created_at).toLocaleTimeString([], {
@@ -222,7 +232,7 @@ const Messages = () => {
         // Check if message already exists
         const exists = messagesOnly.some(m => m.id === newMessage.id);
         if (exists) {
-          // Message exists, just re-add date separators to existing messages
+          console.log('⚠️ Message already exists, skipping duplicate');
           return addDateSeparators(messagesOnly);
         }
         
@@ -237,6 +247,18 @@ const Messages = () => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       }
+    });
+
+    // Listen for message delivery confirmation
+    socket.on('messageDelivered', (data) => {
+      console.log('✅ Message delivered:', data.chat_id);
+      // Could update UI to show delivery status if needed
+    });
+
+    // Listen for message errors
+    socket.on('messageError', (error) => {
+      console.error('❌ Message error:', error);
+      // Could show error message to user
     });
 
     // Listen for user join/leave events
@@ -263,14 +285,16 @@ const Messages = () => {
 
     // Cleanup
     return () => {
-      socket.off('newMessage');
+      socket.off('receiveMessage');
+      socket.off('messageDelivered');
+      socket.off('messageError');
       socket.off('userJoined');
       socket.off('userLeft');
       socket.off('connect');
       socket.off('connect_error');
       socket.off('disconnect');
       socket.disconnect();
-      console.log("Socket disconnected");
+      console.log("🔌 Socket disconnected and cleaned up");
     };
   }, [chatGroupId, clientId]);
 
@@ -305,7 +329,16 @@ const Messages = () => {
 
   useEffect(() => {
     const initializeChat = async () => {
-      if (!token) return;
+      if (!token) {
+        console.log('No token available, user needs to login');
+        return;
+      }
+
+      // Validate that we have the correct client context
+      if (!clientId) {
+        console.error('No client ID available, session may be corrupted');
+        return;
+      }
 
       try {
         setIsLoadingChatGroup(true);
@@ -337,66 +370,79 @@ const Messages = () => {
     };
 
     initializeChat();
-  }, [token]);
+  }, [token, clientId]); // Added clientId to dependencies
 
   const sendMessageWithGroupId = async (text, groupId) => {
     if (!text || !token || !groupId) return;
 
     try {
-      const { data } = await axios.post(
-        `${API_URL}/messages`,
-        {
-          chat_body: text,
-          chat_group_id: groupId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      // Optimistic UI update
+      const tempId = `temp-${Date.now()}`;
       const now = new Date();
-      const newMessage = {
-        id: data.chat_id ? `msg-${data.chat_id}` : `temp-${Date.now()}`,
+      const optimisticMessage = {
+        id: tempId,
         sender: "user",
-        content: data.chat_body,
+        content: text,
         timestamp: now.toISOString(),
         displayTime: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isPending: true
       };
       
       setMessages((prev) => {
-        // Remove date separators temporarily
         const messagesOnly = prev.filter(m => m.type !== 'date');
-        
-        // Check for duplicates
-        const exists = messagesOnly.some(m => m.id === newMessage.id);
-        if (exists) {
-          return addDateSeparators(messagesOnly);
-        }
-        
-        // Add new message at end (chronological order)
-        const updatedMessages = [...messagesOnly, newMessage];
+        const updatedMessages = [...messagesOnly, optimisticMessage];
         return addDateSeparators(updatedMessages);
       });
 
-      // Scroll to bottom only if user is at bottom
+      // Scroll to bottom
       if (shouldAutoScroll) {
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       }
 
-      // Emit via socket for real-time updates to web
-      socket.emit('sendMessageMobile', {
-        chat_id: data.chat_id,
+      // Send via socket only (unified approach)
+      socket.emit('sendMessage', {
         chat_body: text,
         chat_group_id: groupId,
         client_id: clientId,
-        chat_created_at: now.toISOString(),
       });
+
+      // Listen for delivery confirmation to update optimistic message
+      const handleDelivery = (data) => {
+        if (data.chat_group_id === groupId) {
+          setMessages((prev) => {
+            const messagesOnly = prev.filter(m => m.type !== 'date');
+            const updatedMessages = messagesOnly.map(m => 
+              m.id === tempId 
+                ? { ...m, id: `msg-${data.chat_id}`, isPending: false }
+                : m
+            );
+            return addDateSeparators(updatedMessages);
+          });
+          socket.off('messageDelivered', handleDelivery);
+        }
+      };
+
+      socket.on('messageDelivered', handleDelivery);
+
+      // Handle errors
+      const handleError = (error) => {
+        if (error.chat_group_id === groupId) {
+          console.error('❌ Failed to send message:', error);
+          // Remove optimistic message on error
+          setMessages((prev) => {
+            const messagesOnly = prev.filter(m => m.type !== 'date' && m.id !== tempId);
+            return addDateSeparators(messagesOnly);
+          });
+          socket.off('messageError', handleError);
+        }
+      };
+
+      socket.on('messageError', handleError);
+
     } catch (err) {
-      console.error("Error sending message:", err);
+      console.error("❌ Error sending message:", err);
     }
   };
 
@@ -406,62 +452,76 @@ const Messages = () => {
     if (!content || !token || !chatGroupId) return;
 
     try {
-      const { data } = await axios.post(
-        `${API_URL}/messages`,
-        {
-          chat_body: content,
-          chat_group_id: chatGroupId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      // Optimistic UI update
+      const tempId = `temp-${Date.now()}`;
       const now = new Date();
-      const newMessage = {
-        id: data.chat_id ? `msg-${data.chat_id}` : `temp-${Date.now()}`,
+      const optimisticMessage = {
+        id: tempId,
         sender: "user",
-        content: data.chat_body,
+        content: content,
         timestamp: now.toISOString(),
         displayTime: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isPending: true
       };
       
       setMessages((prev) => {
-        // Remove date separators temporarily
         const messagesOnly = prev.filter(m => m.type !== 'date');
-        
-        // Check for duplicates
-        const exists = messagesOnly.some(m => m.id === newMessage.id);
-        if (exists) {
-          return addDateSeparators(messagesOnly);
-        }
-        
-        // Add new message at end (chronological order)
-        const updatedMessages = [...messagesOnly, newMessage];
+        const updatedMessages = [...messagesOnly, optimisticMessage];
         return addDateSeparators(updatedMessages);
       });
       
       setInputMessage("");
 
-      // Scroll to bottom only if user is at bottom
+      // Scroll to bottom
       if (shouldAutoScroll) {
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       }
 
-      // Emit via socket for real-time updates to web
-      socket.emit('sendMessageMobile', {
-        chat_id: data.chat_id,
+      // Send via socket only (unified approach)
+      socket.emit('sendMessage', {
         chat_body: content,
         chat_group_id: chatGroupId,
         client_id: clientId,
-        chat_created_at: now.toISOString(),
       });
+
+      // Listen for delivery confirmation to update optimistic message
+      const handleDelivery = (data) => {
+        if (data.chat_group_id === chatGroupId) {
+          setMessages((prev) => {
+            const messagesOnly = prev.filter(m => m.type !== 'date');
+            const updatedMessages = messagesOnly.map(m => 
+              m.id === tempId 
+                ? { ...m, id: `msg-${data.chat_id}`, isPending: false }
+                : m
+            );
+            return addDateSeparators(updatedMessages);
+          });
+          socket.off('messageDelivered', handleDelivery);
+        }
+      };
+
+      socket.on('messageDelivered', handleDelivery);
+
+      // Handle errors
+      const handleError = (error) => {
+        if (error.chat_group_id === chatGroupId) {
+          console.error('❌ Failed to send message:', error);
+          // Remove optimistic message on error and restore input
+          setMessages((prev) => {
+            const messagesOnly = prev.filter(m => m.type !== 'date' && m.id !== tempId);
+            return addDateSeparators(messagesOnly);
+          });
+          setInputMessage(content); // Restore message content
+          socket.off('messageError', handleError);
+        }
+      };
+
+      socket.on('messageError', handleError);
+
     } catch (err) {
-      console.error("Error sending message:", err);
+      console.error("❌ Error sending message:", err);
     }
   };
 

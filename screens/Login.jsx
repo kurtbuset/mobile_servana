@@ -23,8 +23,9 @@ import {
 } from "libphonenumber-js";
 import { ActivityIndicator } from "react-native";
 import { useDispatch } from "react-redux";
-import { setClient } from "../slices/clientSlice";
+import { setClient, clearClient } from "../slices/clientSlice";
 import SecureStorage from "../utils/secureStorage";
+import { clearCompleteSession } from "../utils/secureLogout";
 
 const rawCountries = [
   { label: "US +1", code: "US", callingCode: "1" },
@@ -89,6 +90,9 @@ export default function Login() {
     setLoading(true); // 🔄 start loading
 
     try {
+      // Clear any existing session data before login
+      await clearCompleteSession(dispatch);
+      
       const response = await fetch(`${API_URL}/clientAccount/logincl`, {
         method: "POST",
         headers: {
