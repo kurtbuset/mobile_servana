@@ -11,13 +11,13 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Feather from "react-native-vector-icons/Feather";
 import { useSelector } from "react-redux";
 import axios from "axios";
-import socket from "../socket";
+import { SocketProvider, SocketContext } from "../SocketProvider";
 import useSecureToken from "../hooks/useSecureToken";
 
 const API_URL = Platform.OS === 'web'
@@ -26,12 +26,13 @@ const API_URL = Platform.OS === 'web'
 
 const Messages = () => {
   const navigation = useNavigation();
+  const socket = useContext(SocketContext);
   const [selectedOption, setSelectedOption] = useState(null);
   const [inputMessage, setInputMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [showCannedMessages, setShowCannedMessages] = useState(false);
   const clientId = useSelector((state) => state.client.data?.client_id);
-  const { token } = useSecureToken(); // Get token from SecureStorage, not Redux
+  const { token, isLoading: tokenLoading } = useSecureToken(); // Get token from SecureStorage, not Redux
   const [departments, setDepartments] = useState([]);
   const [chatGroupId, setChatGroupId] = useState(null);
   const [isLoadingChatGroup, setIsLoadingChatGroup] = useState(true);
@@ -183,7 +184,7 @@ const Messages = () => {
   // Messages.js - Add these changes
 
   useEffect(() => {
-    if (!chatGroupId) return;
+    if (!chatGroupId || !socket) return;
 
     // Connect socket
     socket.connect();
@@ -296,7 +297,7 @@ const Messages = () => {
       socket.disconnect();
       console.log("🔌 Socket disconnected and cleaned up");
     };
-  }, [chatGroupId, clientId]);
+  }, [chatGroupId, clientId, socket]);
 
   const cannedMessages = [
     "I have an issue for the you know...?",
@@ -329,14 +330,23 @@ const Messages = () => {
 
   useEffect(() => {
     const initializeChat = async () => {
+      // Wait for token to load
+      if (tokenLoading) {
+        console.log('⏳ Token still loading...');
+        return;
+      }
+
       if (!token) {
         console.log('No token available, user needs to login');
         return;
       }
 
+      // Display token in console
+      console.log("🔐 Token from SecureStorage in Messages:", token);
+
       // Validate that we have the correct client context
       if (!clientId) {
-        console.error('No client ID available, session may be corrupted');
+        console.log('No client ID available, redirecting to login');
         return;
       }
 
@@ -370,10 +380,10 @@ const Messages = () => {
     };
 
     initializeChat();
-  }, [token, clientId]); // Added clientId to dependencies
+  }, [token, clientId, tokenLoading]); // Added tokenLoading to dependencies
 
   const sendMessageWithGroupId = async (text, groupId) => {
-    if (!text || !token || !groupId) return;
+    if (!text || !token || !groupId || !socket) return;
 
     try {
       // Optimistic UI update
@@ -449,7 +459,7 @@ const Messages = () => {
   const sendMessage = async (text = null) => {
     const content = text ?? inputMessage.trim();
 
-    if (!content || !token || !chatGroupId) return;
+    if (!content || !token || !chatGroupId || !socket) return;
 
     try {
       // Optimistic UI update
@@ -802,7 +812,13 @@ const Messages = () => {
   );
 };
 
-export default Messages;
+export default function MessagesWithSocket() {
+  return (
+    <SocketProvider>
+      <Messages />
+    </SocketProvider>
+  );
+}
 
 const styles = StyleSheet.create({
   header: {

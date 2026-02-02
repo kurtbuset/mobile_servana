@@ -57,7 +57,7 @@ export default function MyProfile() {
               source={require("../assets/userblank.jpg")}
               style={styles.profileImage}
             />
-            <Text style={styles.phoneNumber}>{client.client_country_code} {client.client_number}</Text>
+            <Text style={styles.phoneNumber}>{client?.client_country_code || ''} {client?.client_number || ''}</Text>
           </View>
         </View>
 
@@ -65,7 +65,7 @@ export default function MyProfile() {
         <View style={styles.detailsContainer}>
           <ProfileItem
             label="Name"
-            value={`${client.prof_id.prof_firstname} ${client.prof_id.prof_middlename || ""} ${client.prof_id.prof_lastname}`}
+            value={`${client?.prof_id?.prof_firstname || ''} ${client?.prof_id?.prof_middlename || ""} ${client?.prof_id?.prof_lastname || ''}`}
           />
           <ProfileItem
             label="Birthdate"
@@ -73,20 +73,20 @@ export default function MyProfile() {
               month: "long",
               day: "numeric",
               year: "numeric",
-            }).format(new Date(client.prof_id.prof_date_of_birth))}
+            }).format(new Date(client?.prof_id?.prof_date_of_birth || new Date()))}
           />
 
           <ProfileItem
             label="Street Name, Building, House No."
-            value={client.prof_id.prof_street_address}
+            value={client?.prof_id?.prof_street_address || ''}
           />
           <ProfileItem
             label="Region, Province, City, Barangay"
-            value={client.prof_id.prof_region_info}
+            value={client?.prof_id?.prof_region_info || ''}
           />
           <ProfileItem
             label="Postal Code"
-            value={client.prof_id.prof_postal_code}
+            value={client?.prof_id?.prof_postal_code || ''}
           />
         </View>
 

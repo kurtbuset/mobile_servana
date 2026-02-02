@@ -82,6 +82,11 @@ const SignUpVerification = () => {
       await SecureStorage.setToken(data.token);
       dispatch(setClient({ client: data.client }));
       
+      // Step 4: Clear and recreate socket with new token
+      const { clearSocket } = require('../socket');
+      clearSocket(); // Clear old socket
+      console.log('🔌 Socket cleared after registration, will be recreated with new token');
+      
       console.log('✅ Registration successful, token stored securely, client set in Redux');
 
       Alert.alert("Success", data.message);

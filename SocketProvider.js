@@ -1,32 +1,52 @@
 // SocketProvider.js
-import React, { createContext, useEffect } from 'react';
-import socket from './socket';
+import React, { createContext, useEffect, useState } from 'react';
+import createSocket from './socket';
 
-export const SocketContext = createContext(socket);
+export const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
+  const [socket, setSocket] = useState(null);
+
   useEffect(() => {
-    socket.connect();
-    console.log("📱 Connecting socket...");
+    const initializeSocket = async () => {
+      try {
+        console.log("📱 Initializing socket with authentication...");
+        const socketInstance = await createSocket();
+        setSocket(socketInstance);
 
-    const handleConnect = () => {
-      console.log("✅ Socket connected:", socket.id);
-      socket.emit("mobileConnected");
+        socketInstance.connect();
+        console.log("📱 Connecting socket...");
+
+        const handleConnect = () => {
+          console.log("✅ Socket connected:", socketInstance.id);
+          socketInstance.emit("mobileConnected");
+        };
+
+        const handleDisconnect = () => {
+          console.log("❌ Socket disconnected");
+        };
+
+        const handleConnectError = (error) => {
+          console.error("❌ Socket connection error:", error.message);
+        };
+
+        socketInstance.on("connect", handleConnect);
+        socketInstance.on("disconnect", handleDisconnect);
+        socketInstance.on("connect_error", handleConnectError);
+
+        return () => {
+          socketInstance.off("connect", handleConnect);
+          socketInstance.off("disconnect", handleDisconnect);
+          socketInstance.off("connect_error", handleConnectError);
+          socketInstance.disconnect();
+          console.log("🔌 Socket cleanup on app close");
+        };
+      } catch (error) {
+        console.error("❌ Failed to initialize socket:", error);
+      }
     };
 
-    const handleDisconnect = () => {
-      console.log("❌ Socket disconnected");
-    };
-
-    socket.on("connect", handleConnect);
-    socket.on("disconnect", handleDisconnect);
-
-    return () => {
-      socket.off("connect", handleConnect);
-      socket.off("disconnect", handleDisconnect);
-      socket.disconnect();
-      console.log("🔌 Socket cleanup on app close");
-    };
+    initializeSocket();
   }, []);
 
   return (
