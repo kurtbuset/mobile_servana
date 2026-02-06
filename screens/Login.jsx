@@ -60,9 +60,7 @@ const getFlagEmoji = (countryCode) => {
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
 };
 // const API_URL = "http://192.168.137.1:5000"; // Replace with your backend URL
-const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:5000'
-  : 'http://10.0.2.2:5000';
+import API_URL from '../config/api';
 
 export default function Login() {
   const dispatch = useDispatch()

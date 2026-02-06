@@ -14,8 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import SecureLogoutButton from "../components/SecureLogoutButton";
 
-const API_URL =
-  Platform.OS === "web" ? "http://localhost:5000" : "http://10.0.2.2:5000";
+import API_URL from '../config/api';
 
 export default function MyProfile() {
   const navigation = useNavigation();
