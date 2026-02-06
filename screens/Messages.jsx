@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   FlatList,
   ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import { useState, useRef, useEffect, useContext } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,8 +39,38 @@ const Messages = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const typingTimeoutRef = useRef(null);
+  const inputRef = useRef(null);
 
   const flatListRef = useRef();
+
+  // Handle keyboard events
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // Scroll to bottom when keyboard opens
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   // Helper function to add date separators to messages
   const addDateSeparators = (messageList) => {
@@ -269,6 +300,37 @@ const Messages = () => {
       console.log(`${data.userType} left chat_group ${data.chatGroupId}`);
     });
 
+    // Listen for typing events
+    socket.on('userTyping', (data) => {
+      if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
+        console.log('Agent is typing...');
+        setIsTyping(true);
+        
+        // Clear existing timeout
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        // Set timeout to hide typing indicator after 2 seconds
+        typingTimeoutRef.current = setTimeout(() => {
+          setIsTyping(false);
+        }, 2000);
+      }
+    });
+
+    socket.on('userStoppedTyping', (data) => {
+      if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
+        console.log('Agent stopped typing');
+        
+        // Clear timeout and hide immediately
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        setIsTyping(false);
+      }
+    });
+
     // Handle connection events
     socket.on('connect', () => {
       console.log('✅ Socket connected:', socket.id);
@@ -479,13 +541,14 @@ const Messages = () => {
       });
       
       setInputMessage("");
+      
+      // Dismiss keyboard after sending
+      Keyboard.dismiss();
 
       // Scroll to bottom
-      if (shouldAutoScroll) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
 
       // Send via socket only (unified approach)
       socket.emit('sendMessage', {
@@ -552,7 +615,7 @@ const Messages = () => {
     }
   };
 
-  const renderMessage = ({ item }) => {
+  const renderMessage = ({ item, index }) => {
     // Render date separator
     if (item.type === 'date') {
       return (
@@ -565,26 +628,53 @@ const Messages = () => {
     }
 
     // Render message bubble
+    const isAgent = item.sender === "admin";
+    
+    // Check if next message is also from agent (to determine if we should show avatar)
+    const nextMessage = messages[index + 1];
+    const isLastInGroup = !nextMessage || nextMessage.type === 'date' || nextMessage.sender !== item.sender;
+    const showAvatar = isAgent && isLastInGroup;
+    
     return (
       <View
         style={[
-          styles.messageBubble,
-          item.sender === "user" ? styles.userBubble : styles.adminBubble,
-          { alignSelf: item.sender === "user" ? "flex-end" : "flex-start" },
+          styles.messageContainer,
+          { alignSelf: isAgent ? "flex-start" : "flex-end" },
         ]}
       >
-        <Text style={[
-          styles.messageText,
-          item.sender === "user" ? styles.userText : styles.adminText
-        ]}>
-          {item.content}
-        </Text>
-        <Text style={[
-          styles.timeText,
-          item.sender === "user" ? styles.userTimeText : styles.adminTimeText
-        ]}>
-          {item.displayTime}
-        </Text>
+        {/* Agent Avatar - only show for last message in consecutive agent messages */}
+        {isAgent && (
+          <View style={styles.avatarContainer}>
+            {showAvatar ? (
+              <View style={styles.avatar}>
+                <Feather name="user" size={18} color="#7C3AED" />
+              </View>
+            ) : (
+              <View style={styles.avatarSpacer} />
+            )}
+          </View>
+        )}
+        
+        {/* Message Bubble */}
+        <View
+          style={[
+            styles.messageBubble,
+            isAgent ? styles.adminBubble : styles.userBubble,
+          ]}
+        >
+          <Text style={[
+            styles.messageText,
+            isAgent ? styles.adminText : styles.userText
+          ]}>
+            {item.content}
+          </Text>
+          <Text style={[
+            styles.timeText,
+            isAgent ? styles.adminTimeText : styles.userTimeText
+          ]}>
+            {item.displayTime}
+          </Text>
+        </View>
       </View>
     );
   };
@@ -613,198 +703,221 @@ const Messages = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 30}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View style={{ flex: 1, backgroundColor: "rgba(255,0,0,0.1)" }}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{ flexDirection: "row", alignItems: "center" }}
-            >
-              <Feather name="arrow-left" size={25} color="#6A1B9A" />
-              <Text style={styles.headerText}>Chats</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Dashboard")}>
-              <Text style={styles.endChatText}>End chat</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Message List */}
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderMessage}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingBottom: 20,
-              paddingTop: 10,
-              ...(messages.length === 0 && !selectedOption
-                ? { flexGrow: 1, justifyContent: "flex-end" }
-                : {}),
-            }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            maintainVisibleContentPosition={{
-              minIndexForVisible: 0,
-              autoscrollToTopThreshold: 10
-            }}
-            ListHeaderComponent={() => (
-              hasMoreMessages && isLoadingMessages ? (
-                <View style={{ 
-                  alignItems: 'center',
-                  paddingVertical: 15,
-                  marginBottom: 10
-                }}>
-                  <ActivityIndicator size="small" color="#007AFF" />
-                  <Text style={{ 
-                    color: '#666', 
-                    fontSize: 12, 
-                    marginTop: 8,
-                    fontWeight: '500'
-                  }}>
-                    Loading older messages...
-                  </Text>
-                </View>
-              ) : hasMoreMessages ? (
-                <View style={{ 
-                  alignItems: 'center',
-                  paddingVertical: 10,
-                  marginBottom: 10
-                }}>
-                  <Text style={{ 
-                    color: '#999', 
-                    fontSize: 11, 
-                    fontWeight: '400'
-                  }}>
-                    Scroll up to load older messages
-                  </Text>
-                </View>
-              ) : null
-            )}
-          />
-          {/* Canned Messages Modal */}
-          <Modal
-            visible={showCannedMessages}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowCannedMessages(false)}
-          >
-            <TouchableWithoutFeedback onPress={() => setShowCannedMessages(false)}>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.3)",
-                  justifyContent: "flex-end",
-                }}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1, backgroundColor: "#fff" }}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{ flexDirection: "row", alignItems: "center" }}
               >
-                <View
-                  style={{
-                    backgroundColor: "#fff",
-                    padding: 20,
-                    borderTopLeftRadius: 20,
-                    borderTopRightRadius: 20,
-                    maxHeight: "50%",
-                  }}
-                >
-                  <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}>
-                    Select a message
-                  </Text>
+                <Feather name="arrow-left" size={24} color="#1F2937" />
+                <Text style={styles.headerText}>Chats</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate("Dashboard")}>
+                <Text style={styles.endChatText}>End chat</Text>
+              </TouchableOpacity>
+            </View>
 
-                  <FlatList
-                    data={cannedMessages}
-                    keyExtractor={(item, index) => index.toString()}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        onPress={() => {
-                          sendMessage(item); // send selected message
-                          setShowCannedMessages(false); // close modal
-                        }}
-                        style={{
-                          paddingVertical: 12,
-                          paddingHorizontal: 10,
-                          borderBottomWidth: 1,
-                          borderColor: "#eee",
-                        }}
-                      >
-                        <Text style={{ fontSize: 15, color: "#000" }}>{item}</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </Modal>
-
-
-          {/* Department selection for initial contact */}
-          {!isLoadingChatGroup && !chatGroupId && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
-              {departments.length > 0 ? (
-                <>
-                  <Text style={styles.promptText}>
-                    To connect you with the right support team...
-                  </Text>
-                  {departments.map((department) => (
-                    <TouchableOpacity
-                      key={department.dept_id}
-                      style={styles.optionButton}
-                      onPress={() => handleOptionSelect(department)}
-                    >
-                      <Text style={styles.optionText}>{department.dept_name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </>
-              ) : (
-                <Text style={styles.promptText}>Loading departments...</Text>
+            {/* Message List */}
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderMessage}
+              contentContainerStyle={{
+                paddingBottom: 20,
+                paddingTop: 10,
+                ...(messages.length === 0 && !selectedOption
+                  ? { flexGrow: 1, justifyContent: "flex-end" }
+                  : {}),
+              }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              maintainVisibleContentPosition={{
+                minIndexForVisible: 0,
+                autoscrollToTopThreshold: 10
+              }}
+              ListHeaderComponent={() => (
+                hasMoreMessages && isLoadingMessages ? (
+                  <View style={{ 
+                    alignItems: 'center',
+                    paddingVertical: 15,
+                    marginBottom: 10
+                  }}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                    <Text style={{ 
+                      color: '#666', 
+                      fontSize: 12, 
+                      marginTop: 8,
+                      fontWeight: '500'
+                    }}>
+                      Loading older messages...
+                    </Text>
+                  </View>
+                ) : hasMoreMessages ? (
+                  <View style={{ 
+                    alignItems: 'center',
+                    paddingVertical: 10,
+                    marginBottom: 10
+                  }}>
+                    <Text style={{ 
+                      color: '#999', 
+                      fontSize: 11, 
+                      fontWeight: '400'
+                    }}>
+                      Scroll up to load older messages
+                    </Text>
+                  </View>
+                ) : null
               )}
-            </View>
-          )}
-
-          {/* Loading indicator */}
-          {isLoadingChatGroup && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#6A1B9A" />
-              <Text style={styles.loadingText}>Loading your conversation...</Text>
-            </View>
-          )}
-
-          {/* Input Bar */}
-          {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}> */}
-          <View style={styles.inputBar}>
-            <TouchableOpacity 
-              onPress={() => setShowCannedMessages(true)}
-              disabled={!chatGroupId}
-            >
-              <Feather
-                name="menu"
-                size={24}
-                color={chatGroupId ? "#6B46C1" : "#ccc"}
-                style={{ marginRight: 10 }}
-              />
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.input, !chatGroupId && styles.inputDisabled]}
-              placeholder="Message"
-              placeholderTextColor="#aaa"
-              value={inputMessage}
-              onChangeText={setInputMessage}
-              multiline
-              editable={!!chatGroupId}
             />
-            <TouchableOpacity 
-              onPress={() => sendMessage()}
-              disabled={!chatGroupId}
+            
+            {/* Canned Messages Modal */}
+            <Modal
+              visible={showCannedMessages}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowCannedMessages(false)}
             >
-              <Feather name="send" size={24} color={chatGroupId ? "#2d2d2fff" : "#ccc"} />
-            </TouchableOpacity>
+              <TouchableWithoutFeedback onPress={() => setShowCannedMessages(false)}>
+                <View style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback>
+                    <View style={styles.modalContent}>
+                      {/* Modal Header */}
+                      <View style={styles.modalHeader}>
+                        <View style={styles.modalHandle} />
+                        <Text style={styles.modalTitle}>Quick Messages</Text>
+                        <Text style={styles.modalSubtitle}>Select a message to send</Text>
+                      </View>
+
+                      {/* Messages List */}
+                      <FlatList
+                        data={cannedMessages}
+                        keyExtractor={(item, index) => index.toString()}
+                        renderItem={({ item, index }) => (
+                          <TouchableOpacity
+                            onPress={() => {
+                              sendMessage(item);
+                              setShowCannedMessages(false);
+                            }}
+                            style={[
+                              styles.cannedMessageItem,
+                              index === cannedMessages.length - 1 && styles.cannedMessageItemLast
+                            ]}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.cannedMessageIcon}>
+                              <Feather name="message-square" size={20} color="#7C3AED" />
+                            </View>
+                            <Text style={styles.cannedMessageText}>{item}</Text>
+                            <Feather name="chevron-right" size={20} color="#9CA3AF" />
+                          </TouchableOpacity>
+                        )}
+                        showsVerticalScrollIndicator={false}
+                      />
+
+                      {/* Close Button */}
+                      <TouchableOpacity
+                        onPress={() => setShowCannedMessages(false)}
+                        style={styles.modalCloseButton}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
+            </Modal>
+
+            {/* Department selection for initial contact */}
+            {!isLoadingChatGroup && !chatGroupId && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
+                {departments.length > 0 ? (
+                  <>
+                    <Text style={styles.promptText}>
+                      To connect you with the right support team...
+                    </Text>
+                    {departments.map((department) => (
+                      <TouchableOpacity
+                        key={department.dept_id}
+                        style={styles.optionButton}
+                        onPress={() => handleOptionSelect(department)}
+                      >
+                        <Text style={styles.optionText}>{department.dept_name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                ) : (
+                  <Text style={styles.promptText}>Loading departments...</Text>
+                )}
+              </View>
+            )}
+
+            {/* Loading indicator */}
+            {isLoadingChatGroup && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6A1B9A" />
+                <Text style={styles.loadingText}>Loading your conversation...</Text>
+              </View>
+            )}
+
+            {/* Input Bar */}
+            <View style={styles.inputBar}>
+              <TouchableOpacity 
+                onPress={() => setShowCannedMessages(true)}
+                disabled={!chatGroupId}
+                style={styles.menuButton}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name="menu"
+                  size={22}
+                  color={chatGroupId ? "#7C3AED" : "#D1D5DB"}
+                />
+              </TouchableOpacity>
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, !chatGroupId && styles.inputDisabled]}
+                placeholder="Type a message..."
+                placeholderTextColor="#9CA3AF"
+                value={inputMessage}
+                onChangeText={setInputMessage}
+                multiline
+                maxLength={1000}
+                editable={!!chatGroupId}
+                returnKeyType="default"
+                blurOnSubmit={false}
+                onSubmitEditing={() => {
+                  if (inputMessage.trim() && chatGroupId) {
+                    sendMessage();
+                  }
+                }}
+              />
+              <TouchableOpacity 
+                onPress={() => sendMessage()}
+                disabled={!chatGroupId || !inputMessage.trim()}
+                style={[
+                  styles.sendButton,
+                  (!chatGroupId || !inputMessage.trim()) && styles.sendButtonDisabled
+                ]}
+                activeOpacity={0.7}
+              >
+                <Feather 
+                  name="send" 
+                  size={20} 
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-          {/* </TouchableWithoutFeedback> */}
-        </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -822,136 +935,310 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerText: {
-    color: "#6A1B9A",
+    color: "#1F2937",
     fontSize: 20,
-    marginLeft: 8,
+    fontWeight: "700",
+    marginLeft: 12,
   },
   endChatText: {
-    color: "red",
-    fontSize: 16,
+    color: "#EF4444",
+    fontSize: 15,
+    fontWeight: "600",
   },
   promptText: {
-    color: "#000",
+    color: "#374151",
     fontSize: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    fontWeight: "500",
+    lineHeight: 24,
   },
   optionButton: {
-    borderColor: "#6A1B9A",
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginVertical: 5,
+    borderColor: "#7C3AED",
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginVertical: 6,
     alignSelf: "flex-start",
+    backgroundColor: "#fff",
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   optionText: {
-    color: "#000",
-    fontSize: 16,
+    color: "#7C3AED",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  messageContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginVertical: 2,
+    paddingHorizontal: 16,
+  },
+  avatarContainer: {
+    marginRight: 8,
+    marginBottom: 2,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#E9D5FF",
+  },
+  avatarSpacer: {
+    width: 32,
+    height: 32,
   },
   messageBubble: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 12,
-    maxWidth: "70%",
-    marginVertical: 8,
+    borderRadius: 20,
+    maxWidth: "75%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   userBubble: {
-    backgroundColor: "#6A1B9A",
+    backgroundColor: "#7C3AED",
+    borderBottomRightRadius: 4,
   },
   adminBubble: {
-    backgroundColor: "#E8E8E8",
+    backgroundColor: "#F3F4F6",
+    borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 20,
   },
   userText: {
     color: "#fff",
   },
   adminText: {
-    color: "#000",
+    color: "#1F2937",
   },
   timeText: {
     fontSize: 10,
     textAlign: "right",
-    marginTop: 4,
+    marginTop: 3,
+    fontWeight: "400",
   },
   userTimeText: {
-    color: "#ddd",
+    color: "rgba(255, 255, 255, 0.75)",
   },
   adminTimeText: {
-    color: "#666",
+    color: "#9CA3AF",
   },
   dateSeparatorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 24,
   },
   dateSeparatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#E5E7EB",
   },
   dateSeparatorText: {
     marginHorizontal: 16,
-    color: "#666",
+    color: "#6B7280",
     fontSize: 12,
     fontWeight: "600",
-    backgroundColor: "#f8f9fa",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: "hidden",
   },
   selectedBubble: {
-    backgroundColor: "#6A1B9A",
+    backgroundColor: "#7C3AED",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    maxWidth: "70%",
-    marginVertical: 8,
+    paddingVertical: 12,
+    borderRadius: 20,
+    maxWidth: "75%",
+    marginVertical: 4,
+    borderBottomRightRadius: 4,
   },
   selectedBubbleText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 22,
   },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
-    borderColor: "#eee",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    borderColor: "#F3F4F6",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
+    fontSize: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#ddd",
-    marginRight: 10,
-    backgroundColor: "#f9f9f9",
+    borderColor: "#E5E7EB",
+    marginRight: 8,
+    backgroundColor: "#F9FAFB",
+    maxHeight: 100,
   },
   inputDisabled: {
-    backgroundColor: "#e0e0e0",
-    color: "#999",
+    backgroundColor: "#F3F4F6",
+    color: "#9CA3AF",
+    borderColor: "#E5E7EB",
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#7C3AED",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sendButtonDisabled: {
+    backgroundColor: "#D1D5DB",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
+    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 16,
-    color: "#6A1B9A",
+    color: "#7C3AED",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "transparent",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+    maxHeight: "70%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  modalHeader: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
     fontWeight: "500",
+  },
+  cannedMessageItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  cannedMessageItemLast: {
+    borderBottomWidth: 0,
+  },
+  cannedMessageIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  cannedMessageText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#374151",
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  modalCloseButton: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    paddingVertical: 14,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });

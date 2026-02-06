@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,48 +8,104 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  Dimensions,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
-import React, { useState } from "react";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { useDispatch } from "react-redux";
 import Feather from "react-native-vector-icons/Feather";
 import axios from "axios";
-import { useRoute } from "@react-navigation/native";
-import { ActivityIndicator } from "react-native";
-import { clearCompleteSession } from "../utils/secureLogout";
-import { useDispatch } from "react-redux";
-import { setClient } from "../slices/clientSlice";
 
+import { setClient } from "../slices/clientSlice";
+import { clearCompleteSession } from "../utils/secureLogout";
+import AnimatedBackground from "../components/AnimatedBackground";
+import ErrorModal from "../components/ErrorModal";
+import ScreenHeader from "../components/ScreenHeader";
 import API_URL from '../config/api';
 
+const { width, height } = Dimensions.get("window");
+const scale = (size) => (width / 375) * size;
+const verticalScale = (size) => (height / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+
 const SignUpVerification = () => {
-  const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
-  const [verificationCode, setVerificationCode] = useState("");
   const route = useRoute();
   const dispatch = useDispatch();
+  
   const { phone_country_code, phone_number, password, firstName, lastName, birthdate } = route.params;
+
+  const [loading, setLoading] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [canResend, setCanResend] = useState(true);
+
+  useEffect(() => {
+    startCountdown();
+  }, []);
+
+  // Countdown timer effect
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const startCountdown = () => {
+    setCountdown(120);
+    setCanResend(false);
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
 
   const handleResendOtp = async () => {
+    if (!canResend) return;
+
     try {
+      setResendLoading(true);
       const { phone_country_code, phone_number } = route.params;
       const { data } = await axios.post(`${API_URL}/clientAccount/auth/send-otp`, {
         phone_country_code,
         phone_number,
       });
-      Alert.alert("Success", data.message);
+      setErrorMessage("Code sent successfully! Please check your phone.");
+      setShowErrorModal(true);
+      startCountdown(); // Start countdown after successful resend
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.error || "Failed to resend OTP");
+      setErrorMessage(err.response?.data?.error || "Failed to resend OTP");
+      setShowErrorModal(true);
+    } finally {
+      setResendLoading(false);
     }
   };
 
 
   const handleVerify = async () => {
     if (!/^\d{6}$/.test(verificationCode)) {
-      Alert.alert("Error", "Please enter a 6-digit verification code");
+      setErrorMessage("Please enter a 6-digit verification code");
+      setShowErrorModal(true);
       return;
     }
 
@@ -88,7 +145,6 @@ const SignUpVerification = () => {
       
       console.log('✅ Registration successful, token stored securely, client set in Redux');
 
-      Alert.alert("Success", data.message);
       navigation.navigate("ProfilePicture", { 
         client_id: data.client.client_id, 
         client: data.client 
@@ -96,7 +152,8 @@ const SignUpVerification = () => {
 
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", err.response?.data?.error || "Failed to verify OTP or register account");
+      setErrorMessage(err.response?.data?.error || "Failed to verify OTP or register account");
+      setShowErrorModal(true);
     } finally {
       setLoading(false); // stop loading
     }
@@ -105,94 +162,121 @@ const SignUpVerification = () => {
 
   return (
     <SafeAreaProvider>
-      <StatusBar
-        backgroundColor="transparent"
-        barStyle="light-content"
-        translucent
-      />
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: "#1F1B24", paddingHorizontal: 16 }}
-      >
+      <StatusBar backgroundColor="#1F1B24" barStyle="light-content" />
+      <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header */}  
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 20,
-              }}
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1, paddingHorizontal: moderateScale(20), paddingBottom: verticalScale(30) }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <TouchableOpacity
-                onPress={() => navigation.navigate("Login")}
-                style={{ flexDirection: "row", alignItems: "center" }}
-              >
-                <Feather name="arrow-left" size={25} color="#848287" />
-                <Text style={{ color: "#fff", fontSize: 20, marginLeft: 8 }}>
-                  Verification
-                </Text>
-              </TouchableOpacity>
+            <AnimatedBackground />
+
+            <ScreenHeader 
+              title="Verification" 
+              onBack={() => navigation.goBack()} 
+            />
+
+            {/* Icon */}
+            <View style={styles.iconContainer}>
+              <View style={styles.iconCircle}>
+                <Feather name="mail" size={moderateScale(50)} color="#6237A0" />
+              </View>
             </View>
 
-            {/* Form */}
-            <View style={{ marginTop: 60 }}>
-              {/* Verification Code Input */}
-              <View style={{ alignItems: "center", marginBottom: 20 }}>
-                <Text style={styles.text}>
-                  Please enter the 6-digit code sent to your phone
-                </Text>
-              </View>
+            <Text style={styles.title}>Enter Verification Code</Text>
+            <Text style={styles.subtitle}>
+              Please enter the 6-digit code sent to{'\n'}
+              {phone_country_code} {phone_number}
+            </Text>
 
-              <View style={styles.passwordContainer}>
+            {/* Verification Code Input */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelContainer}>
+                <Feather name="shield" size={16} color="#6237A0" />
+                <Text style={styles.inputLabel}>Verification Code</Text>
+              </View>
+              <View style={styles.codeContainer}>
+                <Feather name="shield" size={20} color="#848287" style={styles.icon} />
                 <TextInput
                   value={verificationCode}
                   onChangeText={(text) => {
-                    // Remove non-numeric characters and limit to 6 digits
                     const numericText = text.replace(/[^0-9]/g, "").slice(0, 6);
                     setVerificationCode(numericText);
                   }}
                   keyboardType="numeric"
                   placeholder="Enter 6-digit code"
                   placeholderTextColor="#848287"
-                  style={styles.code}
+                  style={styles.codeInput}
+                  maxLength={6}
                 />
-              </View>
-              {/* Resend Code Button */}
-              <TouchableOpacity
-                onPress={handleResendOtp
-                }
-                style={{ marginTop: 20 }}
-              >
-                <Text style={[styles.signup, { color: "#8B5CF6" }]}>
-                  Resend Code
-                </Text>
-              </TouchableOpacity>
-              {/* Verify Button */}
-              <TouchableOpacity
-                disabled={loading}
-                onPress={handleVerify}
-                style={{
-                  backgroundColor: "#6237A0",
-                  borderRadius: 10,
-                  padding: 16,
-                  marginTop: 20,
-                }}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" /> // show spinner
-                ) : (
-                  <Text style={styles.signup}>Verify</Text>
+                {verificationCode.length === 6 && (
+                  <Feather name="check-circle" size={20} color="#6237A0" />
                 )}
-              </TouchableOpacity>
+              </View>
             </View>
+
+            {/* Resend Code Button with Countdown */}
+            <TouchableOpacity
+              onPress={handleResendOtp}
+              disabled={resendLoading || !canResend}
+              style={[
+                styles.resendButton,
+                (!canResend || resendLoading) && { opacity: 0.5 }
+              ]}
+              activeOpacity={0.7}
+            >
+              {resendLoading ? (
+                <ActivityIndicator size="small" color="#6237A0" />
+              ) : (
+                <View style={styles.resendContent}>
+                  <Feather name="refresh-cw" size={16} color={canResend ? "#6237A0" : "#666"} />
+                  <Text style={[
+                    styles.resendText,
+                    !canResend && { color: "#666", textDecorationLine: "none" }
+                  ]}>
+                    {canResend ? "Resend Code" : `Resend in ${formatTime(countdown)}`}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Verify Button */}
+            <TouchableOpacity
+              disabled={loading || verificationCode.length !== 6}
+              onPress={handleVerify}
+              style={[
+                styles.verifyButton,
+                (loading || verificationCode.length !== 6) && { opacity: 0.5 }
+              ]}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#fff" />
+                  <Text style={styles.loadingText}>Verifying...</Text>
+                </View>
+              ) : (
+                <View style={styles.verifyButtonContent}>
+                  <Text style={styles.verifyText}>Verify</Text>
+                  <Feather name="check" size={20} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <ErrorModal
+              visible={showErrorModal}
+              message={errorMessage}
+              onClose={() => setShowErrorModal(false)}
+              title="Notice"
+            />
           </ScrollView>
+          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -202,30 +286,128 @@ const SignUpVerification = () => {
 export default SignUpVerification;
 
 const styles = StyleSheet.create({
-  passwordContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: "#1F1B24",
+    position: "relative",
+    overflow: "hidden",
+  },
+  iconContainer: {
+    alignItems: "center",
+    marginVertical: verticalScale(20),
+    zIndex: 10,
+  },
+  iconCircle: {
+    width: moderateScale(100),
+    height: moderateScale(100),
+    borderRadius: moderateScale(50),
+    backgroundColor: "rgba(98, 55, 160, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(98, 55, 160, 0.3)",
+  },
+  title: {
+    color: "#fff",
+    fontSize: moderateScale(26, 0.3),
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: verticalScale(10),
+    zIndex: 10,
+  },
+  subtitle: {
+    color: "#888",
+    fontSize: moderateScale(14),
+    textAlign: "center",
+    marginBottom: verticalScale(40),
+    lineHeight: moderateScale(20),
+    zIndex: 10,
+  },
+  inputGroup: {
+    width: "100%",
+    marginBottom: verticalScale(20),
+    zIndex: 10,
+  },
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: verticalScale(8),
+    gap: moderateScale(6),
+  },
+  inputLabel: {
+    fontSize: moderateScale(14),
+    color: "#848287",
+    fontWeight: "500",
+  },
+  codeContainer: {
     flexDirection: "row",
     backgroundColor: "#444148",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderRadius: moderateScale(10),
+    paddingHorizontal: moderateScale(14),
+    height: verticalScale(50),
     alignItems: "center",
-    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#444148",
   },
-  code: {
+  icon: {
+    marginRight: moderateScale(10),
+  },
+  codeInput: {
     flex: 1,
     color: "#fff",
-    fontSize: 16,
+    fontSize: moderateScale(18),
+    letterSpacing: moderateScale(4),
+    fontWeight: "600",
   },
-  signup: {
+  resendButton: {
+    alignSelf: "center",
+    paddingVertical: verticalScale(10),
+    paddingHorizontal: moderateScale(20),
+    marginBottom: verticalScale(20),
+    zIndex: 10,
+  },
+  resendContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: moderateScale(8),
+  },
+  resendText: {
+    color: "#6237A0",
+    fontSize: moderateScale(15),
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  verifyButton: {
+    backgroundColor: "#6237A0",
+    borderRadius: moderateScale(12),
+    paddingVertical: verticalScale(14),
+    alignItems: "center",
+    marginTop: verticalScale(10),
+    shadowColor: "#6237A0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: moderateScale(8),
+    elevation: 8,
+    zIndex: 10,
+  },
+  verifyButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: moderateScale(8),
+  },
+  verifyText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontSize: moderateScale(18),
+    fontWeight: "600",
   },
-  text: {
-    color: "#ffffff",
-    fontSize: 18,
-    marginBottom: 20,
-    textAlign: "center",
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: moderateScale(10),
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: moderateScale(16),
+    fontWeight: "500",
   },
 });

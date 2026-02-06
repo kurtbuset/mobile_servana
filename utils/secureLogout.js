@@ -4,7 +4,7 @@ import SecureStorage from './secureStorage';
 import { clearSocket } from '../socket';
 
 /**
- * Complete session cleanup - clears all user data
+ * Complete session cleanup - clears all user data except profile picture
  * Use this when switching users or during registration/login
  */
 export const clearCompleteSession = async (dispatch = null) => {
@@ -18,11 +18,24 @@ export const clearCompleteSession = async (dispatch = null) => {
       dispatch(clearClient());
     }
     
+    // Preserve profile picture before clearing
+    const profilePicture = await SecureStorage.getItem('profile_picture');
+    const profile = await SecureStorage.getProfile();
+    const savedProfilePic = profile?.profile_picture || profilePicture;
+    
     // Clear all secure storage including token
     await SecureStorage.clear();
     console.log('🔐 Token cleared from SecureStorage during logout');
+    
+    // Restore profile picture if it existed
+    if (savedProfilePic) {
+      const restoredProfile = await SecureStorage.getProfile() || {};
+      restoredProfile.profile_picture = savedProfilePic;
+      await SecureStorage.setProfile(restoredProfile);
+      console.log('📸 Profile picture preserved after logout');
+    }
       
-    console.log('✅ Complete session cleared');
+    console.log('✅ Complete session cleared (profile picture preserved)');
   } catch (error) {
     console.error('❌ Session clear error:', error);
     throw error;

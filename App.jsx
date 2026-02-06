@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Provider } from 'react-redux';
+import { View, StatusBar } from 'react-native';
 import { store } from './store';
 import AppNavigation from './navigation/appNavigation';
 import { useSecureAuth } from './hooks/useSecureAuth';
@@ -38,9 +39,16 @@ function AuthWrapper({ children }) {
 export default function App() {
   return (
     <Provider store={store}>
-      <AuthWrapper>
-        <AppNavigation />
-      </AuthWrapper>
+      <View style={{ flex: 1, backgroundColor: '#1F1B24' }}>
+        <StatusBar 
+          backgroundColor="#1F1B24" 
+          barStyle="light-content"
+          translucent={false}
+        />
+        <AuthWrapper>
+          <AppNavigation />
+        </AuthWrapper>
+      </View>
     </Provider>
   );
 }

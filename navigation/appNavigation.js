@@ -1,5 +1,6 @@
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Platform } from "react-native";
 import Login from "../screens/Login";
 import ForgotPassword from "../screens/ForgotPassword";
 import SignUp from "../screens/SignUp";
@@ -10,18 +11,44 @@ import MyProfile from "../screens/MyProfile";
 import ChangePassword from "../screens/ChangePassword";
 import SuccessScreen from '../screens/SuccessScreen';
 import EditProfile from "../screens/EditProfile";
-import PersonalInformation from "../screens/PersonalInformation";
 import ProfilePicture from "../screens/ProfilePicture";
 import SetupComplete from "../screens/SetupComplete";
 
+const Stack = createNativeStackNavigator();
 
 const MyTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: "#1F1B24", // Set the background to transparent
+    background: "#1F1B24",
   },
 };
+
+// Enhanced animation configurations
+const slideFromRight = {
+  animation: 'slide_from_right',
+  animationDuration: 250,
+};
+
+const slideFromBottom = {
+  animation: 'slide_from_bottom',
+  animationDuration: 300,
+};
+
+const fadeIn = {
+  animation: 'fade',
+  animationDuration: 200,
+};
+
+const defaultAnimation = Platform.select({
+  ios: {
+    animation: 'default',
+  },
+  android: {
+    animation: 'slide_from_right',
+    animationDuration: 250,
+  },
+});
 
 const AppNavigation = () => {
   return (
@@ -30,29 +57,124 @@ const AppNavigation = () => {
         screenOptions={{
           headerShown: false,
           contentStyle: { 
-            backgroundColor: "#1F1B24" },
+            backgroundColor: "#1F1B24" 
+          },
+          ...defaultAnimation,
+          cardStyle: { 
+            backgroundColor: "#1F1B24",
+            opacity: 1,
+          },
+          cardOverlayEnabled: false,
+          presentation: 'card',
+          // Smooth gesture handling
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          fullScreenGestureEnabled: true,
         }}
       >
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="SignUp" component={SignUp} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
-        <Stack.Screen name="HomeScreen" component={BottomTabs} />
-        <Stack.Screen name="ResetPassword" component={ResetPassword} />
-        <Stack.Screen name="SignUpVerification" component={SignUpVerification} />
-        {/* <Stack.Screen name="PersonalInformation" component={PersonalInformation} /> */}
-        <Stack.Screen name="ProfilePicture" component={ProfilePicture} />
-        <Stack.Screen name="SetupComplete" component={SetupComplete} />
-        <Stack.Screen name="MyProfile" component={MyProfile} />
-        <Stack.Screen name="ChangePassword" component={ChangePassword} />
-        <Stack.Screen name="SuccessScreen" component={SuccessScreen} />
-        <Stack.Screen name="EditProfile" component={EditProfile} />
-
+        <Stack.Screen 
+          name="Login" 
+          component={Login}
+          options={{
+            ...fadeIn,
+            cardStyle: { backgroundColor: "#1F1B24" },
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="SignUp" 
+          component={SignUp}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="ForgotPassword" 
+          component={ForgotPassword}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="HomeScreen" 
+          component={BottomTabs}
+          options={{
+            ...fadeIn,
+            gestureEnabled: false,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="ResetPassword" 
+          component={ResetPassword}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="SignUpVerification" 
+          component={SignUpVerification}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="ProfilePicture" 
+          component={ProfilePicture}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="SetupComplete" 
+          component={SetupComplete}
+          options={{
+            ...fadeIn,
+            gestureEnabled: false,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="MyProfile" 
+          component={MyProfile}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#F8F9FA" },
+          }}
+        />
+        <Stack.Screen 
+          name="ChangePassword" 
+          component={ChangePassword}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="SuccessScreen" 
+          component={SuccessScreen}
+          options={{
+            ...slideFromBottom,
+            gestureEnabled: false,
+            cardStyle: { backgroundColor: "#1F1B24" },
+          }}
+        />
+        <Stack.Screen 
+          name="EditProfile" 
+          component={EditProfile}
+          options={{
+            ...slideFromRight,
+            cardStyle: { backgroundColor: "#F8F9FA" },
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 export default AppNavigation;
-const Stack = createNativeStackNavigator();
-
-
