@@ -18,11 +18,9 @@ import { setClient } from '../slices/clientSlice';
 import useSecureToken from '../hooks/useSecureToken';
 
 
-const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:5000'
-  : 'http://10.0.2.2:5000';
+import API_URL from '../config/api';
 
-export default function EditProfile() {
+export default function EditProfile() { 
   const navigation = useNavigation();
   const client = useSelector((state) => state.client.data);
   const { token } = useSecureToken(); // Get token from SecureStorage, not Redux

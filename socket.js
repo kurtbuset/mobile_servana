@@ -2,10 +2,26 @@ import { io } from "socket.io-client";
 import { Platform } from "react-native";
 import SecureStorage from "./utils/secureStorage";
 
-const SOCKET_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:5000" // Android emulator → localhost
-    : "http://localhost:5000"; // iOS simulator
+// Configuration for different environments
+const getSocketURL = () => {
+  if (Platform.OS === "web") {
+    return "http://localhost:5000";
+  }
+  
+  // For real device, use your computer's IP address
+  // For emulator, use emulator-specific address
+  if (__DEV__) {
+    // Development mode - use your computer's IP
+    return "http://192.168.137.53:5000"; // Your computer's Wi-Fi IP
+  }
+  
+  // Production mode
+  return "https://your-production-backend.com";
+};
+
+const SOCKET_URL = getSocketURL();
+
+console.log(`🌐 Socket connecting to: ${SOCKET_URL}`);
 
 let socketInstance = null;
 

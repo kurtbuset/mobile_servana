@@ -20,9 +20,7 @@ import axios from "axios";
 import { SocketProvider, SocketContext } from "../SocketProvider";
 import useSecureToken from "../hooks/useSecureToken";
 
-const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:5000'
-  : 'http://10.0.2.2:5000';
+import API_URL from '../config/api';
 
 const Messages = () => {
   const navigation = useNavigation();
