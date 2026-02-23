@@ -1,18 +1,20 @@
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Platform } from "react-native";
-import Login from "../screens/Login";
-import ForgotPassword from "../screens/ForgotPassword";
-import SignUp from "../screens/SignUp";
 import BottomTabs from "../navigation/BottomTabs";
-import ResetPassword from "../screens/ResetPassword";
-import SignUpVerification from "../screens/SignUpVerification";
-import MyProfile from "../screens/MyProfile";
-import ChangePassword from "../screens/ChangePassword";
+import { ROUTES, ANIMATIONS, SCREEN_OPTIONS } from "../config/navigation";
+
+// Refactored Screens (Phase 5)
+import { LoginScreen, ForgotPasswordScreen, ResetPasswordScreen } from "../screens/auth/index";
+import { ProfileScreen as MyProfile, EditProfileScreen as EditProfile, ChangePasswordScreen as ChangePassword } from "../screens/profile/index";
+
+// New Multi-Step Sign Up Flow
+import SignUpDetailsScreen from "../screens/auth/SignUpDetailsScreen";
+import SignUpOTPScreen from "../screens/auth/SignUpOTPScreen";
+import SignUpProfilePictureScreen from "../screens/auth/SignUpProfilePictureScreen";
+import SignUpSuccessScreen from "../screens/auth/SignUpSuccessScreen";
+
+// Legacy Screens (to be refactored)
 import SuccessScreen from '../screens/SuccessScreen';
-import EditProfile from "../screens/EditProfile";
-import ProfilePicture from "../screens/ProfilePicture";
-import SetupComplete from "../screens/SetupComplete";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,152 +26,97 @@ const MyTheme = {
   },
 };
 
-// Enhanced animation configurations
-const slideFromRight = {
-  animation: 'slide_from_right',
-  animationDuration: 250,
-};
-
-const slideFromBottom = {
-  animation: 'slide_from_bottom',
-  animationDuration: 300,
-};
-
-const fadeIn = {
-  animation: 'fade',
-  animationDuration: 200,
-};
-
-const defaultAnimation = Platform.select({
-  ios: {
-    animation: 'default',
-  },
-  android: {
-    animation: 'slide_from_right',
-    animationDuration: 250,
-  },
-});
+// Animation configurations from config
+const { SLIDE_RIGHT, SLIDE_BOTTOM, FADE, DEFAULT: defaultAnimation } = ANIMATIONS;
 
 const AppNavigation = () => {
   return (
     <NavigationContainer theme={MyTheme}>
       <Stack.Navigator
         screenOptions={{
-          headerShown: false,
-          contentStyle: { 
-            backgroundColor: "#1F1B24" 
-          },
+          ...SCREEN_OPTIONS.DEFAULT,
           ...defaultAnimation,
-          cardStyle: { 
-            backgroundColor: "#1F1B24",
-            opacity: 1,
-          },
-          cardOverlayEnabled: false,
-          presentation: 'card',
-          // Smooth gesture handling
-          gestureEnabled: true,
-          gestureDirection: 'horizontal',
-          fullScreenGestureEnabled: true,
         }}
       >
         <Stack.Screen 
-          name="Login" 
-          component={Login}
+          name={ROUTES.LOGIN}
+          component={LoginScreen}
           options={{
-            ...fadeIn,
-            cardStyle: { backgroundColor: "#1F1B24" },
-            gestureEnabled: false,
+            ...FADE,
+            ...SCREEN_OPTIONS.NO_GESTURE,
           }}
         />
+        
+        {/* Multi-Step Sign Up Flow */}
         <Stack.Screen 
-          name="SignUp" 
-          component={SignUp}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
+          name="SignUpDetails"
+          component={SignUpDetailsScreen}
+          options={SLIDE_RIGHT}
         />
         <Stack.Screen 
-          name="ForgotPassword" 
-          component={ForgotPassword}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
+          name="SignUpOTP"
+          component={SignUpOTPScreen}
+          options={SLIDE_RIGHT}
         />
         <Stack.Screen 
-          name="HomeScreen" 
+          name="SignUpProfilePicture"
+          component={SignUpProfilePictureScreen}
+          options={SLIDE_RIGHT}
+        />
+        <Stack.Screen 
+          name="SignUpSuccess"
+          component={SignUpSuccessScreen}
+          options={{
+            ...FADE,
+            ...SCREEN_OPTIONS.NO_GESTURE,
+          }}
+        />
+        
+        <Stack.Screen 
+          name={ROUTES.FORGOT_PASSWORD}
+          component={ForgotPasswordScreen}
+          options={SLIDE_RIGHT}
+        />
+        <Stack.Screen 
+          name={ROUTES.RESET_PASSWORD}
+          component={ResetPasswordScreen}
+          options={SLIDE_RIGHT}
+        />
+        <Stack.Screen 
+          name={ROUTES.HOME}
           component={BottomTabs}
           options={{
-            ...fadeIn,
-            gestureEnabled: false,
-            cardStyle: { backgroundColor: "#1F1B24" },
+            ...FADE,
+            ...SCREEN_OPTIONS.NO_GESTURE,
           }}
         />
         <Stack.Screen 
-          name="ResetPassword" 
-          component={ResetPassword}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
-        />
-        <Stack.Screen 
-          name="SignUpVerification" 
-          component={SignUpVerification}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
-        />
-        <Stack.Screen 
-          name="ProfilePicture" 
-          component={ProfilePicture}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
-        />
-        <Stack.Screen 
-          name="SetupComplete" 
-          component={SetupComplete}
-          options={{
-            ...fadeIn,
-            gestureEnabled: false,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
-        />
-        <Stack.Screen 
-          name="MyProfile" 
+          name={ROUTES.MY_PROFILE}
           component={MyProfile}
           options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#F8F9FA" },
+            ...SLIDE_RIGHT,
+            ...SCREEN_OPTIONS.LIGHT_BG,
           }}
         />
         <Stack.Screen 
-          name="ChangePassword" 
+          name={ROUTES.CHANGE_PASSWORD}
           component={ChangePassword}
-          options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#1F1B24" },
-          }}
+          options={SLIDE_RIGHT}
         />
         <Stack.Screen 
-          name="SuccessScreen" 
+          name={ROUTES.SUCCESS}
           component={SuccessScreen}
           options={{
-            ...slideFromBottom,
-            gestureEnabled: false,
-            cardStyle: { backgroundColor: "#1F1B24" },
+            ...SLIDE_BOTTOM,
+            ...SCREEN_OPTIONS.NO_GESTURE,
           }}
         />
         <Stack.Screen 
-          name="EditProfile" 
+          name={ROUTES.EDIT_PROFILE}
           component={EditProfile}
           options={{
-            ...slideFromRight,
-            cardStyle: { backgroundColor: "#F8F9FA" },
+            ...SLIDE_RIGHT,
+            ...SCREEN_OPTIONS.LIGHT_BG,
           }}
         />
       </Stack.Navigator>

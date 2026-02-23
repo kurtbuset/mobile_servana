@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { clearClient } from '../slices/clientSlice';
+import { clearProfile } from '../store/slices/profile';
 import SecureStorage from './secureStorage';
 import { clearSocket } from '../socket';
 
@@ -15,7 +15,7 @@ export const clearCompleteSession = async (dispatch = null) => {
     
     // Clear Redux state if dispatch is available
     if (dispatch) {
-      dispatch(clearClient());
+      dispatch(clearProfile());
     }
     
     // Preserve profile picture before clearing

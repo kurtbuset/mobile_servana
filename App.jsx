@@ -6,6 +6,11 @@ import AppNavigation from './navigation/appNavigation';
 import { useSecureAuth } from './hooks/useSecureAuth';
 import testNetworkConnection from './utils/networkTest';
 
+// Phase 3 Context Providers
+import { SocketProvider } from './contexts/SocketContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+
 // Auth wrapper component to handle secure authentication restoration
 function AuthWrapper({ children }) {
   const { isLoading } = useSecureAuth();
@@ -39,16 +44,22 @@ function AuthWrapper({ children }) {
 export default function App() {
   return (
     <Provider store={store}>
-      <View style={{ flex: 1, backgroundColor: '#1F1B24' }}>
-        <StatusBar 
-          backgroundColor="#1F1B24" 
-          barStyle="light-content"
-          translucent={false}
-        />
-        <AuthWrapper>
-          <AppNavigation />
-        </AuthWrapper>
-      </View>
+      <ThemeProvider>
+        <NotificationProvider>
+          <SocketProvider>
+            <View style={{ flex: 1, backgroundColor: '#1F1B24' }}>
+              <StatusBar 
+                backgroundColor="#1F1B24" 
+                barStyle="light-content"
+                translucent={false}
+              />
+              <AuthWrapper>
+                <AppNavigation />
+              </AuthWrapper>
+            </View>
+          </SocketProvider>
+        </NotificationProvider>
+      </ThemeProvider>
     </Provider>
   );
 }

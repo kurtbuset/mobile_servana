@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { setClient } from '../slices/clientSlice';
+import { setClient } from '../store/slices/profile';
 import SecureStorage from '../utils/secureStorage';
 import MigrationHelper from '../utils/migrationHelper';
 

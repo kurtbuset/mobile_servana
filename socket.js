@@ -12,7 +12,7 @@ const getSocketURL = () => {
   // For emulator, use emulator-specific address
   if (__DEV__) {
     // Development mode - use your computer's IP
-    return "http://192.168.137.3:5000"; // Your computer's Wi-Fi IP
+    return "http://172.26.240.1:5000"; // Your computer's Wi-Fi IP
   }
   
   // Production mode
