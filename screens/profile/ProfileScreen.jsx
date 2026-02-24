@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import { SafeAreaContainer, ScrollContainer } from '../../components/layout';
 import { ProfileHeader, ProfileStats } from '../../features/profile';
 import { selectProfileData } from '../../store/slices/profile';
-import { useLogout } from '../../features/auth/hooks';
+// import { useLogout } from '../../features/auth/hooks';
 import Feather from 'react-native-vector-icons/Feather';
 
 /**
@@ -14,7 +14,7 @@ import Feather from 'react-native-vector-icons/Feather';
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const profile = useSelector(selectProfileData);
-  const { logout, isLoggingOut } = useLogout();
+  // const { logout, isLoggingOut } = useLogout();
 
   const stats = [
     { label: 'Messages', value: '0' },
@@ -28,20 +28,9 @@ export default function ProfileScreen() {
       onPress: () => navigation.navigate('EditProfile'),
     },
     {
-      icon: 'lock',
-      label: 'Change Password',
-      onPress: () => navigation.navigate('ChangePassword'),
-    },
-    {
       icon: 'settings',
       label: 'Settings',
       onPress: () => navigation.navigate('Settings'),
-    },
-    {
-      icon: 'log-out',
-      label: 'Logout',
-      onPress: logout,
-      danger: true,
     },
   ];
 
@@ -64,7 +53,7 @@ export default function ProfileScreen() {
                 style={styles.menuItem}
                 onPress={item.onPress}
                 activeOpacity={0.7}
-                disabled={isLoggingOut}
+                // disabled={isLoggingOut}
               >
                 <View style={styles.menuLeft}>
                   <Feather 

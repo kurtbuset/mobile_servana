@@ -29,7 +29,7 @@ const getAPIURL = () => {
 
   if (ENV.DEV) {
     // Development: Use computer's IP for real devices
-    return 'http://172.26.240.1:5000';
+    return 'http://192.168.1.7:5000';
   }
 
   // Production

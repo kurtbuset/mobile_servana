@@ -7,14 +7,14 @@ const getSocketURL = () => {
   if (Platform.OS === "web") {
     return "http://localhost:5000";
   }
-  
+
   // For real device, use your computer's IP address
   // For emulator, use emulator-specific address
   if (__DEV__) {
     // Development mode - use your computer's IP
-    return "http://172.26.240.1:5000"; // Your computer's Wi-Fi IP
+    return "http://192.168.1.7:5000"; // Your computer's Wi-Fi IP
   }
-  
+
   // Production mode
   return "https://your-production-backend.com";
 };
@@ -36,7 +36,7 @@ const createSocket = async () => {
 
     // Fetch token from secure storage
     const token = await SecureStorage.getToken();
-    
+
     if (!token) {
       console.warn("⚠️ No token found in secure storage for socket connection");
       socketInstance = io(SOCKET_URL, {
@@ -46,17 +46,20 @@ const createSocket = async () => {
       return socketInstance;
     }
 
-    console.log("🔐 Creating socket with authentication token:", token.substring(0, 20) + "...");
-    
+    console.log(
+      "🔐 Creating socket with authentication token:",
+      token.substring(0, 20) + "...",
+    );
+
     socketInstance = io(SOCKET_URL, {
       transports: ["websocket"],
       autoConnect: false,
       auth: {
-        token: token
+        token: token,
       },
       extraHeaders: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     return socketInstance;

@@ -1,15 +1,16 @@
-import { useState } from 'react';
-import { messageAPI } from '../../../shared/api';
+import { useState } from "react";
+import { messageAPI } from "../../../shared/api";
 
 /**
  * Hook for managing chat group initialization and creation
+ * Token is automatically included in API requests via interceptor
  */
-export const useChatGroup = (token, clientId) => {
+export const useChatGroup = (clientId) => {
   const [chatGroupId, setChatGroupId] = useState(null);
   const [isLoadingChatGroup, setIsLoadingChatGroup] = useState(true);
 
   const initializeChatGroup = async () => {
-    if (!token || !clientId) return false;
+    if (!clientId) return false;
 
     try {
       setIsLoadingChatGroup(true);
@@ -20,7 +21,7 @@ export const useChatGroup = (token, clientId) => {
       setChatGroupId(chatGroup.chat_group_id);
       return true; // Has existing chat
     } catch (error) {
-      console.log('No existing chat group found');
+      console.log("No existing chat group found");
       return false; // No existing chat
     } finally {
       setIsLoadingChatGroup(false);
@@ -28,16 +29,16 @@ export const useChatGroup = (token, clientId) => {
   };
 
   const createChatGroupWithDepartment = async (departmentId) => {
-    if (!token) return null;
-
     try {
       // Use centralized API
-      const data = await messageAPI.createChatGroup({ department: departmentId });
+      const data = await messageAPI.createChatGroup({
+        department: departmentId,
+      });
 
       setChatGroupId(data.chat_group_id);
       return data.chat_group_id;
     } catch (error) {
-      console.error('Error creating chat group:', error);
+      console.error("Error creating chat group:", error);
       return null;
     }
   };

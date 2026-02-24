@@ -1,25 +1,5 @@
-import apiClient from './client';
-import { AUTH_ENDPOINTS } from './endpoints';
-
-/**
- * Login with phone number and password
- */
-export const login = async (countryCode, phoneNumber, password) => {
-  const response = await apiClient.post(AUTH_ENDPOINTS.LOGIN, {
-    client_country_code: countryCode,
-    client_number: phoneNumber,
-    client_password: password,
-  });
-  return response.data;
-};
-
-/**
- * Sign up new user
- */
-export const signUp = async (userData) => {
-  const response = await apiClient.post(AUTH_ENDPOINTS.SIGNUP, userData);
-  return response.data;
-};
+import apiClient from "./client";
+import { AUTH_ENDPOINTS } from "./endpoints";
 
 /**
  * Verify OTP code
@@ -36,7 +16,7 @@ export const verifyOTP = async (phoneNumber, otp) => {
  * Send OTP code
  */
 export const sendOtp = async ({ phone_country_code, phone_number }) => {
-  const response = await apiClient.post('/clientAccount/auth/send-otp', {
+  const response = await apiClient.post("/clientAccount/auth/send-otp", {
     phone_country_code,
     phone_number,
   });
@@ -44,55 +24,55 @@ export const sendOtp = async ({ phone_country_code, phone_number }) => {
 };
 
 /**
- * Verify OTP during registration
+ * Request OTP for authentication (unified for login/registration)
+ * @param {string} phoneCountryCode - Country code (e.g., "+63")
+ * @param {string} phoneNumber - Phone number without country code
+ * @returns {Promise<{message: string, is_new_user: boolean, otp_expires_in: number}>}
  */
-export const verifyOtp = async ({ phone_country_code, phone_number, otp }) => {
-  const response = await apiClient.post('/clientAccount/auth/verify-otp', {
-    phone_country_code,
-    phone_number,
-    otp,
-  });
-  return response.data;
-};
-
-/**
- * Complete registration after OTP verification
- */
-export const completeRegistration = async (userData) => {
-  const response = await apiClient.post('/clientAccount/auth/complete-registration', userData);
-  return response.data;
-};
-
-/**
- * Request password reset
- */
-export const forgotPassword = async (countryCode, phoneNumber) => {
-  const response = await apiClient.post(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
-    client_country_code: countryCode,
-    client_number: phoneNumber,
-  });
-  return response.data;
-};
-
-/**
- * Reset password with OTP
- */
-export const resetPassword = async (phoneNumber, otp, newPassword) => {
-  const response = await apiClient.post(AUTH_ENDPOINTS.RESET_PASSWORD, {
+export const requestOtp = async (phoneCountryCode, phoneNumber) => {
+  const response = await apiClient.post("/clientAccount/auth/request-otp", {
+    phone_country_code: phoneCountryCode,
     phone_number: phoneNumber,
-    otp_code: otp,
-    new_password: newPassword,
   });
   return response.data;
 };
 
 /**
- * Change password (authenticated)
+ * Verify OTP for authentication (unified for login/registration)
+ * @param {string} phoneCountryCode - Country code (e.g., "+63")
+ * @param {string} phoneNumber - Phone number without country code
+ * @param {string} otp - 6-digit OTP code
+ * @returns {Promise<{message: string, is_new_user: boolean, requires_profile: boolean, token: string, client: object}>}
  */
-export const changePassword = async (currentPassword, newPassword) => {
-  const response = await apiClient.post(AUTH_ENDPOINTS.CHANGE_PASSWORD, {
-    current_password: currentPassword,
-    new_password: newPassword,
+export const verifyOtp = async (phoneCountryCode, phoneNumber, otp) => {
+  const response = await apiClient.post("/clientAccount/auth/verify-otp", {
+    phone_country_code: phoneCountryCode,
+    phone_number: phoneNumber,
+    otp: otp,
+  });
+  return response.data;
+};
+
+/**
+ * Validate token with backend
+ * Checks if token is still valid and client exists in database
+ * @returns {Promise<{message: string, client: object}>}
+ */
+export const validateToken = async () => {
+  const response = await apiClient.get("/clientAccount/auth/validate");
+  return response.data;
+};
+
+/**
+ * Complete user profile (optional after registration)
+ * @param {string} firstname - User's first name
+ * @param {string} lastname - User's last name
+ * @returns {Promise<{message: string, profile: object}>}
+ */
+export const completeProfile = async (firstname, lastname) => {
+  const response = await apiClient.post("/clientAccount/profile/complete", {
+    firstname,
+    lastname,
   });
   return response.data;
 };
@@ -106,14 +86,11 @@ export const logout = async () => {
 };
 
 export default {
-  login,
-  signUp,
   verifyOTP,
   sendOtp,
+  requestOtp,
   verifyOtp,
-  completeRegistration,
-  forgotPassword,
-  resetPassword,
-  changePassword,
+  validateToken,
+  completeProfile,
   logout,
 };
