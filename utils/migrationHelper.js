@@ -57,7 +57,7 @@ class MigrationHelper {
       
       const isWorking = retrievedValue === testValue;
       
-      console.log(isWorking ? '✅ Secure storage verification passed' : '❌ Secure storage verification failed');
+      // console.log(isWorking ? '✅ Secure storage verification passed' : '❌ Secure storage verification failed');
       
       return {
         success: isWorking,
