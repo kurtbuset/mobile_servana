@@ -13,6 +13,8 @@ export const useMessageSocket = (
   flatListRef
 ) => {
   const [isTyping, setIsTyping] = useState(false);
+  const [typingAgentName, setTypingAgentName] = useState('Agent');
+  const [typingAgentImage, setTypingAgentImage] = useState(null);
   const typingTimeoutRef = useRef(null);
   
   // Use refs to avoid re-running effect on scroll changes
@@ -84,10 +86,12 @@ export const useMessageSocket = (
     });
 
     // Listen for typing events
-    socket.on('userTyping', (data) => {
+    socket.on('typing', (data) => {
       if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
-        console.log('Agent is typing...');
+        console.log('👤 User is typing:', data.userName);
         setIsTyping(true);
+        setTypingAgentName(data.userName || 'Agent');
+        setTypingAgentImage(data.userImage || null);
 
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
@@ -95,19 +99,23 @@ export const useMessageSocket = (
 
         typingTimeoutRef.current = setTimeout(() => {
           setIsTyping(false);
-        }, 2000);
+          setTypingAgentName('Agent');
+          setTypingAgentImage(null);
+        }, 3000);
       }
     });
 
-    socket.on('userStoppedTyping', (data) => {
+    socket.on('stopTyping', (data) => {
       if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
-        console.log('Agent stopped typing');
+        console.log('👤 User stopped typing');
 
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
 
         setIsTyping(false);
+        setTypingAgentName('Agent');
+        setTypingAgentImage(null);
       }
     });
 
@@ -127,8 +135,8 @@ export const useMessageSocket = (
     // Cleanup
     return () => {
       socket.off('receiveMessage');
-      socket.off('userTyping');
-      socket.off('userStoppedTyping');
+      socket.off('typing');
+      socket.off('stopTyping');
       socket.off('connect');
       socket.off('connect_error');
       socket.off('disconnect');
@@ -141,6 +149,8 @@ export const useMessageSocket = (
 
   return {
     isTyping,
+    typingAgentName,
+    typingAgentImage,
   };
 };
 

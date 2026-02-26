@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { SafeAreaContainer, ScrollContainer } from '../../components/layout';
 import { ProfileHeader, ProfileStats } from '../../features/profile';
 import { selectProfileData } from '../../store/slices/profile';
-// import { useLogout } from '../../features/auth/hooks';
+import { useAuth } from '../../contexts/AuthContext';
 import Feather from 'react-native-vector-icons/Feather';
 
 /**
@@ -14,12 +14,40 @@ import Feather from 'react-native-vector-icons/Feather';
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const profile = useSelector(selectProfileData);
-  // const { logout, isLoggingOut } = useLogout();
+  const { logout } = useAuth();
 
   const stats = [
     { label: 'Messages', value: '0' },
     { label: 'Tickets', value: '0' },
   ];
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              // Navigation will be handled automatically by App.jsx
+              // when isAuthenticated becomes false
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const menuItems = [
     {
@@ -31,6 +59,12 @@ export default function ProfileScreen() {
       icon: 'settings',
       label: 'Settings',
       onPress: () => navigation.navigate('Settings'),
+    },
+    {
+      icon: 'log-out',
+      label: 'Logout',
+      onPress: handleLogout,
+      danger: true,
     },
   ];
 
@@ -53,7 +87,6 @@ export default function ProfileScreen() {
                 style={styles.menuItem}
                 onPress={item.onPress}
                 activeOpacity={0.7}
-                // disabled={isLoggingOut}
               >
                 <View style={styles.menuLeft}>
                   <Feather 

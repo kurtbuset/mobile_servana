@@ -9,7 +9,7 @@ const getAPIURL = () => {
   }
 
   if (__DEV__) {
-    return "http://192.168.1.7:5000";
+    return "http://192.168.137.135:5000";
   }
 
   return "https://your-production-backend.com";

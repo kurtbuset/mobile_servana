@@ -1,7 +1,7 @@
 import React, { createContext, useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { selectClient } from '../../store/slices/profile';
-import createSocket from '../../socket';
+import createSocket from '../../config/socket';
 
 export const SocketContext = createContext(null);
 

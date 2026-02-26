@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { SafeAreaContainer, KeyboardAvoidingContainer, ScrollContainer } from '../../components/layout';
@@ -10,6 +10,10 @@ import { validateProfileForm } from '../../shared/forms';
 
 /**
  * Edit Profile Screen - Container Component
+ * 
+ * Handles both:
+ * - Editing existing profile (user has name)
+ * - Completing profile (user skipped name during signup)
  */
 export default function EditProfileScreen() {
   const navigation = useNavigation();
@@ -18,6 +22,9 @@ export default function EditProfileScreen() {
 
   const [formData, setFormData] = useState(extractProfileFormData(profile));
   const [errors, setErrors] = useState({});
+
+  // Check if this is first-time profile completion
+  const isCompletingProfile = !profile?.prof_firstname && !profile?.prof_lastname;
 
   useEffect(() => {
     if (profile) {
@@ -45,7 +52,11 @@ export default function EditProfileScreen() {
     const result = await updateProfile(formatted);
 
     if (result.success) {
-      Alert.alert('Success', 'Profile updated successfully!', [
+      const message = isCompletingProfile 
+        ? 'Profile completed successfully!' 
+        : 'Profile updated successfully!';
+      
+      Alert.alert('Success', message, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } else if (error) {
@@ -59,9 +70,17 @@ export default function EditProfileScreen() {
         <ScrollContainer>
           <View style={styles.container}>
             <ScreenHeader 
-              title="Edit Profile" 
+              title={isCompletingProfile ? "Complete Profile" : "Edit Profile"}
               onBack={() => navigation.goBack()} 
             />
+            
+            {isCompletingProfile && (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  Add your information to personalize your experience with our support team
+                </Text>
+              </View>
+            )}
             
             <ProfileForm
               firstName={formData.firstName}
@@ -95,5 +114,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  infoBox: {
+    backgroundColor: '#F3F0FF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#7C3AED',
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

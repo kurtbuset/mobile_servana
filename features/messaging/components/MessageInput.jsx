@@ -1,22 +1,100 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
 /**
  * Message Input Component
  * Input bar with menu button for canned messages and send button
+ * Emits typing indicators to socket
  */
 export const MessageInput = ({ 
   value, 
   onChangeText, 
   onSend, 
   onOpenCannedMessages,
-  disabled = false 
+  disabled = false,
+  socket = null,
+  chatGroupId = null,
+  clientId = null,
+  clientName = null,
 }) => {
   const inputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Emit stop typing on unmount
+      if (isTyping && socket && chatGroupId) {
+        socket.emit('stopTyping', {
+          chatGroupId,
+          userId: clientId,
+          userType: 'client',
+        });
+      }
+    };
+  }, [isTyping, socket, chatGroupId, clientId]);
+
+  const handleTextChange = (text) => {
+    onChangeText(text);
+
+    // Don't emit typing if socket not available or no chat group
+    if (!socket || !chatGroupId || !clientId) return;
+
+    // Emit typing event if not already typing
+    if (text.length > 0 && !isTyping) {
+      setIsTyping(true);
+      socket.emit('typing', {
+        chatGroupId,
+        userName: clientName || 'Client',
+        userId: clientId,
+        userType: 'client',
+      });
+    }
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to emit stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTyping) {
+        setIsTyping(false);
+        socket.emit('stopTyping', {
+          chatGroupId,
+          userId: clientId,
+          userType: 'client',
+        });
+      }
+    }, 2000);
+
+    // If text is empty, immediately stop typing
+    if (text.length === 0 && isTyping) {
+      setIsTyping(false);
+      socket.emit('stopTyping', {
+        chatGroupId,
+        userId: clientId,
+        userType: 'client',
+      });
+    }
+  };
 
   const handleSend = () => {
     if (value.trim() && !disabled) {
+      // Stop typing before sending
+      if (isTyping && socket && chatGroupId) {
+        setIsTyping(false);
+        socket.emit('stopTyping', {
+          chatGroupId,
+          userId: clientId,
+          userType: 'client',
+        });
+      }
       onSend();
     }
   };
@@ -42,7 +120,7 @@ export const MessageInput = ({
         placeholder="Type a message..."
         placeholderTextColor="#9CA3AF"
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleTextChange}
         multiline
         maxLength={1000}
         editable={!disabled}

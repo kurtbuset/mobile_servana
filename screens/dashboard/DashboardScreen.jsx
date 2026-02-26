@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaContainer, ScrollContainer } from '../../components/layout';
 import { WelcomeHeader, QuickActionCard, FAQList } from '../../features/dashboard';
 import { selectProfileData } from '../../store/slices/profile';
+import { ROUTES } from '../../config/navigation';
 
 /**
  * Dashboard Screen - Container Component
@@ -13,6 +14,15 @@ import { selectProfileData } from '../../store/slices/profile';
 export default function DashboardScreen() {
   const navigation = useNavigation();
   const profile = useSelector(selectProfileData);
+  const requiresProfileSetup = useSelector(state => state.profile.requiresProfileSetup);
+
+  // Check if profile setup is needed on mount
+  useEffect(() => {
+    // If backend indicated profile setup is required, navigate to ProfileSetup
+    if (requiresProfileSetup) {
+      navigation.navigate(ROUTES.PROFILE_SETUP, { optional: true });
+    }
+  }, [requiresProfileSetup, navigation]);
 
   const faqs = [
     {

@@ -1,11 +1,15 @@
 // API endpoint constants
+
+// OTP Authentication Endpoints
+export const OTP_ENDPOINTS = {
+  REQUEST_OTP: '/otp/request-otp',
+  VERIFY_OTP: '/otp/verify-otp',
+};
+
+// Client Account Endpoints
 export const AUTH_ENDPOINTS = {
-  LOGIN: '/clientAccount/logincl',
-  SIGNUP: '/clientAccount/signup',
-  VERIFY_OTP: '/clientAccount/verify-otp',
-  FORGOT_PASSWORD: '/clientAccount/forgot-password',
-  RESET_PASSWORD: '/clientAccount/reset-password',
-  CHANGE_PASSWORD: '/clientAccount/change-password',
+  VALIDATE_TOKEN: '/clientAccount/auth/validate',
+  COMPLETE_PROFILE: '/clientAccount/profile/complete',
   LOGOUT: '/clientAccount/logout',
 };
 
@@ -32,6 +36,7 @@ export const DEPARTMENT_ENDPOINTS = {
 };
 
 export default {
+  OTP_ENDPOINTS,
   AUTH_ENDPOINTS,
   PROFILE_ENDPOINTS,
   MESSAGE_ENDPOINTS,

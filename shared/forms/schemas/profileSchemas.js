@@ -12,10 +12,12 @@ export const validateProfileForm = (formData) => {
     errors.firstName = firstNameValidation.error;
   }
 
-  // Validate last name
-  const lastNameValidation = validateName(formData.lastName, 'Last name');
-  if (!lastNameValidation.isValid) {
-    errors.lastName = lastNameValidation.error;
+  // Validate last name (optional)
+  if (formData.lastName && formData.lastName.trim()) {
+    const lastNameValidation = validateName(formData.lastName, 'Last name');
+    if (!lastNameValidation.isValid) {
+      errors.lastName = lastNameValidation.error;
+    }
   }
 
   // Validate middle name (optional)

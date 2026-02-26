@@ -27,6 +27,7 @@ import ErrorModal from "../../components/ErrorModal";
 import Feather from "react-native-vector-icons/Feather";
 import { ROUTES } from "../../config/navigation";
 import { useAuth } from "../../contexts/AuthContext";
+import { useOTPAutoFill } from "../../hooks/useOTPAutoFill";
 
 /**
  * Unified Authentication Screen (Viber-Style)
@@ -34,8 +35,14 @@ import { useAuth } from "../../contexts/AuthContext";
  *
  * Flow:
  * 1. Phone Input Step - User enters phone number
- * 2. OTP Input Step - User enters OTP code
+ * 2. OTP Input Step - User enters OTP code (with auto-detection)
  * 3. Navigate to Dashboard or Profile Setup based on response
+ * 
+ * Features:
+ * - Auto OTP detection from SMS (iOS native, Android clipboard)
+ * - Manual OTP entry as fallback
+ * - Resend OTP functionality
+ * - Timer countdown
  */
 export default function AuthScreen() {
   const navigation = useNavigation();
@@ -60,6 +67,50 @@ export default function AuthScreen() {
 
   // Timer for OTP expiration
   const [timer, setTimer] = useState(300);
+
+  /**
+   * Handle auto-detected OTP
+   */
+  const handleOTPDetected = (detectedOTP) => {
+    console.log('🎯 Auto-detected OTP:', detectedOTP);
+    setOtp(detectedOTP);
+    
+    // Show success feedback
+    Alert.alert(
+      'OTP Detected',
+      'Code automatically filled from SMS',
+      [{ text: 'OK' }],
+      { cancelable: true }
+    );
+  };
+
+  /**
+   * Auto OTP detection hook
+   * Starts monitoring when OTP step is active
+   */
+  const { startMonitoring, stopMonitoring, isMonitoring } = useOTPAutoFill(
+    handleOTPDetected,
+    {
+      otpLength: 6,
+      pollingInterval: 1000,
+      autoStart: false, // We'll start manually when OTP step begins
+    }
+  );
+
+  /**
+   * Start OTP monitoring when entering OTP step
+   */
+  useEffect(() => {
+    if (step === 'otp') {
+      startMonitoring();
+    } else {
+      stopMonitoring();
+    }
+
+    return () => {
+      stopMonitoring();
+    };
+  }, [step]);
 
   // OTP expiration timer
   useEffect(() => {
@@ -130,16 +181,15 @@ export default function AuthScreen() {
         otp,
       );
 
-      // Update authentication state (saves token and profile)
-      await login(response.client, response.token);
+      // Update authentication state (saves token, profile, and setup flag)
+      await login(response.client, response.token, response.requires_profile);
 
-      // Navigate based on profile status
-      if (response.requires_profile) {
-        // New user without profile - navigate to optional profile setup
-        navigation.navigate(ROUTES.PROFILE_SETUP, { optional: true });
-      }
-      // If profile exists, the auth state change will automatically
-      // switch to the Main App Stack (HomeScreen)
+      // After login, the navigation stack switches from Auth to Main
+      // The AppNavigation will automatically show HOME (Dashboard)
+      // Dashboard will check requiresProfileSetup flag and navigate accordingly
+      
+      // Note: Navigation happens after the stack switches, so we don't call navigate here
+      // The profile setup check should happen in the Main App (e.g., HomeScreen useEffect)
     } catch (err) {
       console.error("Verify OTP error:", err);
       const errorMessage =
@@ -302,6 +352,25 @@ export default function AuthScreen() {
                       </Text>
                     )}
 
+                    {/* Auto OTP Detection Indicator */}
+                    {isMonitoring && Platform.OS === 'android' && (
+                      <View style={styles.autoDetectBanner}>
+                        <Feather name="smartphone" size={16} color="#7C3AED" />
+                        <Text style={styles.autoDetectText}>
+                          Waiting for SMS... or copy code to auto-fill
+                        </Text>
+                      </View>
+                    )}
+
+                    {Platform.OS === 'ios' && (
+                      <View style={styles.autoDetectBanner}>
+                        <Feather name="check-circle" size={16} color="#10B981" />
+                        <Text style={styles.autoDetectText}>
+                          Auto-fill enabled - code will appear automatically
+                        </Text>
+                      </View>
+                    )}
+
                     {/* OTP Input */}
                     <View style={styles.form}>
                       <OTPInput
@@ -420,6 +489,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 16,
     fontWeight: "600",
+  },
+  autoDetectBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F0FF",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+  },
+  autoDetectText: {
+    fontSize: 13,
+    color: "#7C3AED",
+    marginLeft: 8,
+    fontWeight: "500",
+    flex: 1,
   },
   form: {
     width: "100%",

@@ -1,9 +1,8 @@
 import React, { createContext, useState, useCallback, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { setClient } from "../../store/slices/profile";
 import SecureStorage from "../../utils/secureStorage";
 import TokenValidation from "../../utils/tokenValidation";
 import MigrationHelper from "../../utils/migrationHelper";
+import AuthStorageService from "../../services/authStorage";
 
 export const AuthContext = createContext(null);
 
@@ -22,7 +21,6 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [storageStatus, setStorageStatus] = useState(null);
-  const dispatch = useDispatch();
 
   /**
    * Check authentication status on app initialization
@@ -78,8 +76,7 @@ export const AuthProvider = ({ children }) => {
         console.log(
           "⏰ Token expired - removing and requiring re-authentication",
         );
-        await TokenValidation.removeExpiredToken();
-        await SecureStorage.removeProfile();
+        await AuthStorageService.clearAuthData();
         setIsAuthenticated(false);
         setIsLoading(false);
         return;
@@ -96,12 +93,15 @@ export const AuthProvider = ({ children }) => {
         // Update profile with latest data from backend
         const profile = validationResponse.client;
 
+        // Use unified service to update both storage layers
         await SecureStorage.setProfile(profile);
-        dispatch(
-          setClient({
-            client: profile,
-          }),
-        );
+        AuthStorageService.getCurrentProfile(); // Sync to Redux if needed
+        
+        // If profile not in Redux, set it
+        if (!AuthStorageService.isAuthenticated()) {
+          await AuthStorageService.saveAuthData(token, profile);
+        }
+        
         setIsAuthenticated(true);
         console.log(
           "✅ Token validated with backend - user authenticated (NO OTP NEEDED)",
@@ -118,8 +118,7 @@ export const AuthProvider = ({ children }) => {
           console.log(
             "🚫 Client account no longer valid - clearing auth state",
           );
-          await TokenValidation.removeExpiredToken();
-          await SecureStorage.removeProfile();
+          await AuthStorageService.clearAuthData();
           setIsAuthenticated(false);
         } else {
           // Network error or other issue - allow offline access with cached profile
@@ -127,18 +126,17 @@ export const AuthProvider = ({ children }) => {
           const profile = await SecureStorage.getProfile();
 
           if (profile) {
-            dispatch(
-              setClient({
-                client: profile,
-              }),
-            );
+            // Use unified service to sync to Redux
+            const currentToken = await SecureStorage.getToken();
+            await AuthStorageService.saveAuthData(currentToken, profile);
+            
             setIsAuthenticated(true);
             console.log(
               "✅ Using cached profile - user authenticated (OFFLINE MODE)",
             );
           } else {
             // No cached profile - require re-authentication
-            await SecureStorage.removeToken();
+            await AuthStorageService.clearAuthData();
             setIsAuthenticated(false);
           }
         }
@@ -149,8 +147,7 @@ export const AuthProvider = ({ children }) => {
 
       // On error, clear auth state and require re-authentication
       try {
-        await SecureStorage.removeToken();
-        await SecureStorage.removeProfile();
+        await AuthStorageService.clearAuthData();
       } catch (cleanupError) {
         console.error("❌ Failed to cleanup after error:", cleanupError);
       }
@@ -159,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, []);
 
   /**
    * Set authenticated state after successful login/registration
@@ -167,40 +164,30 @@ export const AuthProvider = ({ children }) => {
    *
    * @param {Object} clientData - Client profile data from backend
    * @param {string} token - JWT token from backend
+   * @param {boolean} requiresProfileSetup - Whether user needs to complete profile
    */
-  const login = useCallback(
-    async (clientData, token) => {
-      try {
-        // Store token and profile in secure storage
-        await SecureStorage.setToken(token);
-        await SecureStorage.setProfile(clientData);
+  const login = useCallback(async (clientData, token, requiresProfileSetup = false) => {
+    try {
+      // Use unified service to save to both storage layers
+      await AuthStorageService.saveAuthData(token, clientData, requiresProfileSetup);
 
-        // Update Redux state
-        dispatch(
-          setClient({
-            client: clientData,
-          }),
-        );
-
-        // Set authenticated state
-        setIsAuthenticated(true);
-        console.log("✅ User logged in successfully");
-      } catch (error) {
-        console.error("❌ Failed to set authenticated state:", error);
-        throw error;
-      }
-    },
-    [dispatch],
-  );
+      // Set authenticated state
+      setIsAuthenticated(true);
+      console.log("✅ User logged in successfully");
+    } catch (error) {
+      console.error("❌ Failed to set authenticated state:", error);
+      throw error;
+    }
+  }, []);
 
   /**
    * Clear authentication state (logout)
-   * Removes token and profile from secure storage
+   * Removes token and profile from both SecureStorage and Redux
    */
   const logout = useCallback(async () => {
     try {
-      await SecureStorage.removeToken();
-      await SecureStorage.removeProfile();
+      // Use unified service to clear both storage layers
+      await AuthStorageService.clearAuthData();
       setIsAuthenticated(false);
       console.log("✅ User logged out successfully");
     } catch (error) {
@@ -215,36 +202,16 @@ export const AuthProvider = ({ children }) => {
    *
    * @param {Object} profileData - Updated profile data
    */
-  const updateProfile = useCallback(
-    async (profileData) => {
-      try {
-        // Get current profile
-        const currentProfile = await SecureStorage.getProfile();
-
-        // Merge with new data
-        const updatedProfile = {
-          ...currentProfile,
-          ...profileData,
-        };
-
-        // Store updated profile
-        await SecureStorage.setProfile(updatedProfile);
-
-        // Update Redux state
-        dispatch(
-          setClient({
-            client: updatedProfile,
-          }),
-        );
-
-        console.log("✅ Profile updated successfully");
-      } catch (error) {
-        console.error("❌ Failed to update profile:", error);
-        throw error;
-      }
-    },
-    [dispatch],
-  );
+  const updateProfile = useCallback(async (profileData) => {
+    try {
+      // Use unified service to update both storage layers
+      await AuthStorageService.updateProfile(profileData);
+      console.log("✅ Profile updated successfully");
+    } catch (error) {
+      console.error("❌ Failed to update profile:", error);
+      throw error;
+    }
+  }, []);
 
   // Check auth status on mount
   useEffect(() => {

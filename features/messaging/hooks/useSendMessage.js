@@ -53,6 +53,9 @@ export const useSendMessage = (
         client_id: clientId,
       });
 
+      console.log('clientId: ', clientId)
+      console.log('targetGroupId: ', targetGroupId)
+
       // Listen for delivery confirmation
       const handleDelivery = (data) => {
         if (data.chat_group_id === targetGroupId) {

@@ -1,42 +1,60 @@
 import { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { profileAPI } from '../../../shared/api';
-import { setClient } from '../../../store/slices/profile';
+import { authAPI } from '../../../shared/api';
+import AuthStorageService from '../../../services/authStorage';
 
 /**
  * Custom hook for updating profile
+ * Handles both creating new profile and updating existing profile
+ * Uses centralized AuthStorageService to keep Redux and SecureStorage in sync
  */
 export const useProfileUpdate = () => {
-  const dispatch = useDispatch();
-  const client = useSelector((state) => state.client.data);
+  const client = useSelector((state) => state.profile.client);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const updateProfile = async (profileData) => {
-    if (!client?.prof_id?.prof_id) {
-      return { success: false, error: 'Profile ID not found' };
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const data = await profileAPI.updateProfile(
-        client.prof_id.prof_id,
-        profileData
-      );
+      // Check if client has a profile
+      const hasProfile = client?.prof_id?.prof_id;
 
-      // Update Redux state with new profile data
-      dispatch(setClient({
-        client: {
-          ...client,
-          prof_id: data.profile,
-        },
-      }));
+      let data;
 
-      console.log('✅ Profile updated successfully');
+      if (!hasProfile) {
+        // CREATE NEW PROFILE
+        console.log('📝 Creating new profile...');
+        
+        // Use completeProfile API (creates profile and links to client)
+        data = await authAPI.completeProfile(
+          profileData.prof_firstname || '',
+          profileData.prof_lastname || ''
+        );
+        
+        console.log('✅ Profile created:', data);
+      } else {
+        // UPDATE EXISTING PROFILE
+        console.log('📝 Updating existing profile:', client.prof_id.prof_id);
+        
+        data = await profileAPI.updateProfile(
+          client.prof_id.prof_id,
+          profileData
+        );
+        
+        console.log('✅ Profile updated:', data);
+      }
+
+      // Use centralized AuthStorageService to update both Redux and SecureStorage
+      await AuthStorageService.updateProfile(data.profile);
+      
+      console.log('✅ Profile synchronized across both storage layers');
+
       return { success: true, profile: data.profile };
     } catch (err) {
+      console.error('❌ Profile update error:', err);
       const errorMessage = err.response?.data?.error || 
         'Failed to update profile';
       setError(errorMessage);

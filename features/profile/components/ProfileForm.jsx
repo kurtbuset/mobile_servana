@@ -57,10 +57,10 @@ export const ProfileForm = ({
       />
 
       <Input
-        label="Last Name *"
+        label="Last Name"
         value={lastName}
         onChangeText={onLastNameChange}
-        placeholder="Enter last name"
+        placeholder="Enter last name (optional)"
         error={errors?.lastName}
       />
 

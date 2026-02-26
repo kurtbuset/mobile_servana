@@ -10,8 +10,7 @@ export const ROUTES = {
   // Auth Stack
   LOGIN: "Login",
   PROFILE_SETUP: "ProfileSetup",
-  FORGOT_PASSWORD: "ForgotPassword",
-  RESET_PASSWORD: "ResetPassword",
+  WELCOME_SUCCESS: "WelcomeSuccess",
 
   // Multi-Step Sign Up Flow
   SIGN_UP_PHONE: "SignUpPhone",

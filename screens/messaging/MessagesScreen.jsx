@@ -72,7 +72,7 @@ export default function MessagesScreen() {
   } = useMessageHistory(chatGroupId, flatListRef);
 
   // Socket Integration
-  const { isTyping } = useMessageSocket(
+  const { isTyping, typingAgentName, typingAgentImage } = useMessageSocket(
     socket,
     chatGroupId,
     clientId,
@@ -216,7 +216,12 @@ export default function MessagesScreen() {
             )}
 
             {/* Typing Indicator */}
-            {isTyping && <TypingIndicator />}
+            {isTyping && (
+              <TypingIndicator 
+                agentImage={typingAgentImage}
+                agentName={typingAgentName}
+              />
+            )}
 
             {/* Input Bar */}
             <MessageInput
@@ -225,6 +230,10 @@ export default function MessagesScreen() {
               onSend={handleSendMessage}
               onOpenCannedMessages={() => setShowCannedMessages(true)}
               disabled={!chatGroupId || sending}
+              socket={socket}
+              chatGroupId={chatGroupId}
+              clientId={clientId}
+              clientName={client?.prof_id?.prof_firstname || 'Client'}
             />
 
             {/* Canned Messages Modal */}

@@ -1,29 +1,29 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import { View, Animated, StyleSheet, Image } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 
 /**
  * Typing Indicator Component
- * Shows animated dots when agent is typing
+ * Shows animated dots with agent profile picture when agent is typing
  */
-export const TypingIndicator = () => {
+export const TypingIndicator = ({ agentImage = null, agentName = 'Agent' }) => {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-
     const createAnimation = (dot, delay) => {
       return Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(dot, {
             toValue: 1,
-            duration: 400,
+            duration: 500,
             useNativeDriver: true,
           }),
           Animated.timing(dot, {
             toValue: 0,
-            duration: 400,
+            duration: 500,
             useNativeDriver: true,
           }),
         ])
@@ -31,8 +31,8 @@ export const TypingIndicator = () => {
     };
 
     const anim1 = createAnimation(dot1, 0);
-    const anim2 = createAnimation(dot2, 150);
-    const anim3 = createAnimation(dot3, 300);
+    const anim2 = createAnimation(dot2, 200);
+    const anim3 = createAnimation(dot3, 400);
 
     anim1.start();
     anim2.start();
@@ -47,57 +47,83 @@ export const TypingIndicator = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.bubble}>
-        <Text style={styles.text}>Typing</Text>
-        <View style={styles.dots}>
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dot1,
-                transform: [
-                  {
-                    translateY: dot1.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -4],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dot2,
-                transform: [
-                  {
-                    translateY: dot2.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -4],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dot3,
-                transform: [
-                  {
-                    translateY: dot3.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -4],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
+      <View style={styles.row}>
+        {/* Profile Picture */}
+        <View style={styles.avatarContainer}>
+          {agentImage ? (
+            <Image
+              source={{ uri: agentImage }}
+              style={styles.avatar}
+              defaultSource={require('../../../assets/userblank.jpg')}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Feather name="user" size={20} color="#9CA3AF" />
+            </View>
+          )}
+        </View>
+
+        {/* Typing Bubble */}
+        <View style={styles.bubble}>
+          <View style={styles.dots}>
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  opacity: dot1.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.3, 1],
+                  }),
+                  transform: [
+                    {
+                      scale: dot1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1.2],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  opacity: dot2.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.3, 1],
+                  }),
+                  transform: [
+                    {
+                      scale: dot2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1.2],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  opacity: dot3.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.3, 1],
+                  }),
+                  transform: [
+                    {
+                      scale: dot3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1.2],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -108,30 +134,58 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    marginBottom: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  avatarContainer: {
+    marginRight: 8,
+    marginBottom: 2,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E5E7EB',
+  },
+  avatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   bubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-  },
-  text: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 8,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+    borderBottomLeftRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   dots: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#999',
-    marginHorizontal: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#9CA3AF',
+    marginHorizontal: 3,
   },
 });
 

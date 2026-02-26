@@ -10,31 +10,35 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   StatusBar,
-  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch } from "react-redux";
 import { Input, Button } from "../../components/ui";
 import { authAPI } from "../../shared/api";
 import ErrorModal from "../../components/ErrorModal";
 import Feather from "react-native-vector-icons/Feather";
 import { useAuth } from "../../contexts/AuthContext";
 import { ROUTES } from "../../config/navigation";
+import { setRequiresProfileSetup } from "../../store/slices/profile";
 
 /**
  * Profile Setup Screen (Optional)
  * Allows new users to optionally add their name after authentication
- * Can be skipped - users can add profile later in settings
+ * Can be skipped - users can add name later in settings
+ * 
+ * UX: Simple, single-field form asking "What should we call you?"
+ * This creates a friendly, conversational tone for customer support
  */
 export default function ProfileSetupScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const dispatch = useDispatch();
   const { optional = true } = route.params || {};
   const { updateProfile } = useAuth();
 
   // Form state
-  const [firstname, setFirstname] = useState("");
-  const [lastname, setLastname] = useState("");
+  const [name, setName] = useState("");
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -47,14 +51,9 @@ export default function ProfileSetupScreen() {
   const validateForm = () => {
     const newErrors = {};
 
-    // First name validation (optional but if provided, must be valid)
-    if (firstname.trim() && firstname.trim().length < 2) {
-      newErrors.firstname = "First name must be at least 2 characters";
-    }
-
-    // Last name validation (optional but if provided, must be valid)
-    if (lastname.trim() && lastname.trim().length < 2) {
-      newErrors.lastname = "Last name must be at least 2 characters";
+    // Name validation (optional but if provided, must be valid)
+    if (name.trim() && name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters";
     }
 
     setErrors(newErrors);
@@ -62,15 +61,15 @@ export default function ProfileSetupScreen() {
   };
 
   /**
-   * Save profile and navigate to home
+   * Save profile and navigate to success screen
    */
   const handleSave = async () => {
     if (!validateForm()) {
       return;
     }
 
-    // If both fields are empty, treat as skip
-    if (!firstname.trim() && !lastname.trim()) {
+    // If name is empty, treat as skip
+    if (!name.trim()) {
       handleSkip();
       return;
     }
@@ -80,22 +79,22 @@ export default function ProfileSetupScreen() {
       setError("");
 
       const response = await authAPI.completeProfile(
-        firstname.trim(),
-        lastname.trim(),
+        name.trim(),
+        " ", // No lastname
       );
 
-      // Update profile in auth context
-      await updateProfile({
-        prof_firstname: firstname.trim(),
-        prof_lastname: lastname.trim(),
-      });
+      // Backend returns { profile, message }
+      // The profile object needs to be merged into client.prof_id
+      // The updateProfile method in authStorage handles this correctly
+      await updateProfile(response.profile);
 
-      Alert.alert("Success", "Profile updated successfully", [
-        {
-          text: "OK",
-          onPress: () => navigation.navigate(ROUTES.HOME),
-        },
-      ]);
+      // Clear the requiresProfileSetup flag
+      dispatch(setRequiresProfileSetup(false));
+
+      // Navigate to success screen
+      navigation.replace(ROUTES.WELCOME_SUCCESS, {
+        firstname: name.trim(),
+      });
     } catch (err) {
       console.error("Complete profile error:", err);
       setError(
@@ -108,17 +107,17 @@ export default function ProfileSetupScreen() {
   };
 
   /**
-   * Skip profile setup and go directly to home
+   * Skip profile setup and go directly to success screen
    */
   const handleSkip = () => {
     if (optional) {
-      // Navigate to home screen
-      navigation.navigate(ROUTES.HOME);
-    } else {
-      Alert.alert(
-        "Profile Required",
-        "Please complete your profile to continue.",
-      );
+      // Clear the requiresProfileSetup flag
+      dispatch(setRequiresProfileSetup(false));
+      
+      // Navigate to success screen without name
+      navigation.replace(ROUTES.WELCOME_SUCCESS, {
+        firstname: null,
+      });
     }
   };
 
@@ -145,47 +144,33 @@ export default function ProfileSetupScreen() {
                 </View>
 
                 {/* Title */}
-                <Text style={styles.title}>Complete Your Profile</Text>
+                <Text style={styles.title}>What should we call you?</Text>
                 <Text style={styles.subtitle}>
                   {optional
-                    ? "Add your name to personalize your account\n(You can skip this step)"
-                    : "Please add your name to continue"}
+                    ? "Help us personalize your experience\n(Optional - you can skip this)"
+                    : "Please enter your name to continue"}
                 </Text>
 
                 {/* Form */}
                 <View style={styles.form}>
                   <Input
-                    label="First Name"
-                    value={firstname}
+                    label="Name"
+                    value={name}
                     onChangeText={(text) => {
-                      setFirstname(text);
-                      if (errors.firstname) {
-                        setErrors({ ...errors, firstname: null });
+                      setName(text);
+                      if (errors.name) {
+                        setErrors({ ...errors, name: null });
                       }
                     }}
-                    placeholder="Enter your first name"
-                    error={errors.firstname}
+                    placeholder="Enter your name"
+                    error={errors.name}
                     editable={!loading}
                     autoCapitalize="words"
-                  />
-
-                  <Input
-                    label="Last Name"
-                    value={lastname}
-                    onChangeText={(text) => {
-                      setLastname(text);
-                      if (errors.lastname) {
-                        setErrors({ ...errors, lastname: null });
-                      }
-                    }}
-                    placeholder="Enter your last name"
-                    error={errors.lastname}
-                    editable={!loading}
-                    autoCapitalize="words"
+                    autoFocus={true}
                   />
 
                   <Button
-                    title="Save"
+                    title="Continue"
                     onPress={handleSave}
                     loading={loading}
                     size="large"
@@ -194,7 +179,7 @@ export default function ProfileSetupScreen() {
 
                   {optional && (
                     <Button
-                      title="Skip"
+                      title="Skip for now"
                       onPress={handleSkip}
                       variant="ghost"
                       size="large"
@@ -209,7 +194,7 @@ export default function ProfileSetupScreen() {
                   <View style={styles.infoContainer}>
                     <Feather name="info" size={16} color="#666" />
                     <Text style={styles.infoText}>
-                      You can add or edit your profile later in Settings
+                      Adding your name helps our support team provide a more personalized experience
                     </Text>
                   </View>
                 )}

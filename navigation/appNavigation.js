@@ -5,7 +5,7 @@ import { ROUTES, ANIMATIONS, SCREEN_OPTIONS } from "../config/navigation";
 import { useAuth } from "../contexts/AuthContext";
 
 // Refactored Screens (Phase 5)
-import { AuthScreen, ProfileSetupScreen } from "../screens/auth/index";
+import { AuthScreen, ProfileSetupScreen, WelcomeSuccessScreen } from "../screens/auth/index";
 import {
   ProfileScreen as MyProfile,
   EditProfileScreen as EditProfile,
@@ -75,6 +75,14 @@ const AppNavigation = () => {
               component={ProfileSetupScreen}
               options={{
                 ...SLIDE_RIGHT,
+                ...SCREEN_OPTIONS.NO_GESTURE,
+              }}
+            />
+            <Stack.Screen
+              name={ROUTES.WELCOME_SUCCESS}
+              component={WelcomeSuccessScreen}
+              options={{
+                ...FADE,
                 ...SCREEN_OPTIONS.NO_GESTURE,
               }}
             />

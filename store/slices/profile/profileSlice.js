@@ -5,6 +5,7 @@ const initialState = {
   loading: false,
   error: null,
   updateSuccess: false,
+  requiresProfileSetup: false, // Flag to indicate if user needs profile setup
 };
 
 const profileSlice = createSlice({
@@ -13,6 +14,10 @@ const profileSlice = createSlice({
   reducers: {
     setClient: (state, action) => {
       state.client = action.payload.client;
+      // Optionally set requiresProfileSetup flag if provided
+      if (action.payload.requiresProfileSetup !== undefined) {
+        state.requiresProfileSetup = action.payload.requiresProfileSetup;
+      }
     },
     setProfileLoading: (state, action) => {
       state.loading = action.payload;
@@ -33,6 +38,10 @@ const profileSlice = createSlice({
       state.client = null;
       state.error = null;
       state.updateSuccess = false;
+      state.requiresProfileSetup = false;
+    },
+    setRequiresProfileSetup: (state, action) => {
+      state.requiresProfileSetup = action.payload;
     },
   },
 });
@@ -44,6 +53,7 @@ export const {
   setUpdateSuccess,
   updateProfileField,
   clearProfile,
+  setRequiresProfileSetup,
 } = profileSlice.actions;
 
 export default profileSlice.reducer;
