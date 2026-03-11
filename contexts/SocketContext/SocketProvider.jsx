@@ -44,7 +44,8 @@ export const SocketProvider = ({ children }) => {
         const handleConnect = () => {
           console.log('✅ Socket connected:', socketInstance.id);
           setIsConnected(true);
-          socketInstance.emit('mobileConnected');
+          // Note: 'mobileConnected' event is not handled by backend
+          // Socket authentication is done via JWT token in handshake
         };
 
         const handleDisconnect = () => {

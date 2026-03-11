@@ -1,16 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { emitTyping, emitStopTyping } from '../../../contexts/SocketContext/emitters';
 
 /**
  * Message Input Component
  * Input bar with menu button for canned messages and send button
- * Emits typing indicators to socket
+ * Emits typing indicators to socket using emitter functions
  */
-export const MessageInput = ({ 
-  value, 
-  onChangeText, 
-  onSend, 
+export const MessageInput = ({
+  value,
+  onChangeText,
+  onSend,
   onOpenCannedMessages,
   disabled = false,
   socket = null,
@@ -30,7 +31,7 @@ export const MessageInput = ({
       }
       // Emit stop typing on unmount
       if (isTyping && socket && chatGroupId) {
-        socket.emit('stopTyping', {
+        emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
           userType: 'client',
@@ -48,7 +49,7 @@ export const MessageInput = ({
     // Emit typing event if not already typing
     if (text.length > 0 && !isTyping) {
       setIsTyping(true);
-      socket.emit('typing', {
+      emitTyping(socket, {
         chatGroupId,
         userName: clientName || 'Client',
         userId: clientId,
@@ -65,7 +66,7 @@ export const MessageInput = ({
     typingTimeoutRef.current = setTimeout(() => {
       if (isTyping) {
         setIsTyping(false);
-        socket.emit('stopTyping', {
+        emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
           userType: 'client',
@@ -76,7 +77,7 @@ export const MessageInput = ({
     // If text is empty, immediately stop typing
     if (text.length === 0 && isTyping) {
       setIsTyping(false);
-      socket.emit('stopTyping', {
+      emitStopTyping(socket, {
         chatGroupId,
         userId: clientId,
         userType: 'client',
@@ -89,7 +90,7 @@ export const MessageInput = ({
       // Stop typing before sending
       if (isTyping && socket && chatGroupId) {
         setIsTyping(false);
-        socket.emit('stopTyping', {
+        emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
           userType: 'client',
@@ -101,7 +102,7 @@ export const MessageInput = ({
 
   return (
     <View style={styles.inputBar}>
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={onOpenCannedMessages}
         disabled={disabled}
         style={styles.menuButton}
@@ -113,7 +114,7 @@ export const MessageInput = ({
           color={disabled ? "#D1D5DB" : "#7C3AED"}
         />
       </TouchableOpacity>
-      
+
       <TextInput
         ref={inputRef}
         style={[styles.input, disabled && styles.inputDisabled]}
@@ -128,8 +129,8 @@ export const MessageInput = ({
         blurOnSubmit={false}
         onSubmitEditing={handleSend}
       />
-      
-      <TouchableOpacity 
+
+      <TouchableOpacity
         onPress={handleSend}
         disabled={disabled || !value.trim()}
         style={[
@@ -138,9 +139,9 @@ export const MessageInput = ({
         ]}
         activeOpacity={0.7}
       >
-        <Feather 
-          name="send" 
-          size={20} 
+        <Feather
+          name="send"
+          size={20}
           color="#fff"
         />
       </TouchableOpacity>

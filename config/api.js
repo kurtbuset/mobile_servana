@@ -10,7 +10,7 @@ const getAPIURL = () => {
   // For emulator, use emulator-specific address
   if (__DEV__) {
     // Development mode - use your computer's IP
-    return "http://192.168.137.135:5000"; // Your computer's Wi-Fi IP
+    return "http://192.168.137.65:5000"; // Your computer's Wi-Fi IP
   }
   
   // Production mode

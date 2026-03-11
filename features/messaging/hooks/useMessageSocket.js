@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { addDateSeparators } from '../utils/messageHelpers';
+import { 
+  registerMessageEvents, 
+  registerTypingEvents, 
+  registerConnectionEvents 
+} from '../../../contexts/SocketContext/events';
+import { 
+  joinChatGroup, 
+  leaveChatGroup 
+} from '../../../contexts/SocketContext/emitters';
 
 /**
  * Hook for managing socket events for messaging
+ * Note: Socket connection is managed by SocketProvider
+ * This hook only sets up event listeners and manages typing state
  */
 export const useMessageSocket = (
   socket,
@@ -31,117 +42,136 @@ export const useMessageSocket = (
   }, [flatListRef]);
 
   useEffect(() => {
-    if (!chatGroupId || !socket) return;
+    if (!chatGroupId || !socket) {
+      console.log('⏸️ Skipping socket setup - missing chatGroupId or socket');
+      return;
+    }
 
-    // Connect socket
-    socket.connect();
-    console.log('Socket connecting...');
+    // Check if socket is connected
+    if (!socket.connected) {
+      console.log('⏸️ Socket not connected yet, waiting...');
+    }
 
-    // Join chat group
-    socket.emit('joinChatGroup', {
+    console.log('📱 Setting up message socket listeners for chat group:', chatGroupId);
+
+    // Join chat group using emitter
+    joinChatGroup(socket, {
       groupId: chatGroupId,
       userType: 'client',
       userId: clientId,
     });
 
-    // Listen for incoming messages
-    socket.on('receiveMessage', (message) => {
-      console.log('📨 Received message:', message.chat_id);
-
-      // Skip messages sent by current client (avoid duplicates)
-      if (message.client_id === clientId) {
-        console.log('⏭️ Skipping own message to avoid duplicate');
-        return;
-      }
-
-      const newMessage = {
-        id: message.chat_id ? `msg-${message.chat_id}` : `temp-${Date.now()}`,
-        sender: message.sender_type === 'client' ? 'user' : 'admin',
-        content: message.chat_body,
-        timestamp: message.chat_created_at,
-        displayTime: new Date(message.chat_created_at).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      };
-
-      setMessages((prev) => {
-        const messagesOnly = prev.filter((m) => m.type !== 'date');
-        const exists = messagesOnly.some((m) => m.id === newMessage.id);
-        if (exists) {
-          console.log('⚠️ Message already exists, skipping duplicate');
-          return addDateSeparators(messagesOnly);
+    // Register message events
+    const cleanupMessages = registerMessageEvents(socket, {
+      onMessageReceived: (message) => {
+        // Skip messages sent by current client (avoid duplicates)
+        if (message.client_id === clientId) {
+          console.log('⏭️ Skipping own message to avoid duplicate');
+          return;
         }
 
-        const updatedMessages = [...messagesOnly, newMessage];
-        return addDateSeparators(updatedMessages);
-      });
+        const newMessage = {
+          id: message.chat_id ? `msg-${message.chat_id}` : `temp-${Date.now()}`,
+          sender: message.sender_type === 'client' ? 'user' : 'admin',
+          content: message.chat_body,
+          timestamp: message.chat_created_at,
+          displayTime: new Date(message.chat_created_at).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        };
 
-      // Scroll to bottom if user is at bottom
-      if (shouldAutoScrollRef.current) {
-        setTimeout(() => {
-          flatListRefRef.current?.current?.scrollToEnd({ animated: true });
-        }, 100);
+        setMessages((prev) => {
+          const messagesOnly = prev.filter((m) => m.type !== 'date');
+          const exists = messagesOnly.some((m) => m.id === newMessage.id);
+          if (exists) {
+            console.log('⚠️ Message already exists, skipping duplicate');
+            return addDateSeparators(messagesOnly);
+          }
+
+          const updatedMessages = [...messagesOnly, newMessage];
+          return addDateSeparators(updatedMessages);
+        });
+
+        // Scroll to bottom if user is at bottom
+        if (shouldAutoScrollRef.current) {
+          setTimeout(() => {
+            flatListRefRef.current?.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      },
+      onMessageDelivered: (data) => {
+        // Handle message delivery confirmation if needed
+        console.log('✅ Message delivered:', data.chat_id);
+      },
+      onMessageError: (error) => {
+        // Handle message error if needed
+        console.error('❌ Message error:', error);
       }
     });
 
-    // Listen for typing events
-    socket.on('typing', (data) => {
-      if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
-        console.log('👤 User is typing:', data.userName);
-        setIsTyping(true);
-        setTypingAgentName(data.userName || 'Agent');
-        setTypingAgentImage(data.userImage || null);
+    // Register typing events
+    const cleanupTyping = registerTypingEvents(socket, {
+      onTyping: (data) => {
+        if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
+          setIsTyping(true);
+          setTypingAgentName(data.userName || 'Agent');
+          setTypingAgentImage(data.userImage || null);
 
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+            setTypingAgentName('Agent');
+            setTypingAgentImage(null);
+          }, 3000);
         }
+      },
+      onStopTyping: (data) => {
+        if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
 
-        typingTimeoutRef.current = setTimeout(() => {
           setIsTyping(false);
           setTypingAgentName('Agent');
           setTypingAgentImage(null);
-        }, 3000);
-      }
-    });
-
-    socket.on('stopTyping', (data) => {
-      if (data.chatGroupId === chatGroupId && data.userType !== 'client') {
-        console.log('👤 User stopped typing');
-
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
         }
-
-        setIsTyping(false);
-        setTypingAgentName('Agent');
-        setTypingAgentImage(null);
       }
     });
 
-    // Connection events
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error);
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+    // Register connection events (for reconnection handling)
+    const cleanupConnection = registerConnectionEvents(socket, {
+      onConnect: () => {
+        console.log('✅ Socket reconnected, rejoining chat group');
+        // Re-join chat group on reconnection
+        joinChatGroup(socket, {
+          groupId: chatGroupId,
+          userType: 'client',
+          userId: clientId,
+        });
+      }
     });
 
     // Cleanup
     return () => {
-      socket.off('receiveMessage');
-      socket.off('typing');
-      socket.off('stopTyping');
-      socket.off('connect');
-      socket.off('connect_error');
-      socket.off('disconnect');
-      socket.disconnect();
-      console.log('🔌 Socket disconnected and cleaned up');
+      console.log('🧹 Cleaning up message socket listeners');
+      
+      // Cleanup all event listeners
+      cleanupMessages();
+      cleanupTyping();
+      cleanupConnection();
+      
+      // Leave chat group on cleanup
+      leaveChatGroup(socket, {
+        groupId: chatGroupId,
+        userType: 'client',
+        userId: clientId,
+      });
+      
+      console.log('✅ Message socket listeners cleaned up');
     };
   }, [chatGroupId, clientId, socket, setMessages]);
   // Note: shouldAutoScroll and flatListRef are intentionally NOT in dependencies
