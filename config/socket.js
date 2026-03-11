@@ -12,7 +12,7 @@ const getSocketURL = () => {
   // For emulator, use emulator-specific address
   if (__DEV__) {
     // Development mode - use your computer's IP
-    return "http://192.168.137.135:5000"; // Your computer's Wi-Fi IP
+    return "http://192.168.137.65:5000"; // Your computer's Wi-Fi IP
   }
 
   // Production mode
@@ -42,6 +42,10 @@ const createSocket = async () => {
       socketInstance = io(SOCKET_URL, {
         transports: ["websocket"],
         autoConnect: false,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 20000,
       });
       return socketInstance;
     }
@@ -50,6 +54,11 @@ const createSocket = async () => {
       "🔐 Creating socket with authentication token:",
       token.substring(0, 20) + "...",
     );
+
+    // Add jitter to reconnection delay to prevent thundering herd
+    const baseDelay = 1000;
+    const jitter = Math.random() * 4000; // 0-4 seconds
+    const reconnectionDelay = baseDelay + jitter;
 
     socketInstance = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -60,6 +69,13 @@ const createSocket = async () => {
       extraHeaders: {
         Authorization: `Bearer ${token}`,
       },
+      // Mobile-optimized reconnection settings with jitter
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: reconnectionDelay,
+      reconnectionDelayMax: 10000,
+      randomizationFactor: 0.5,  // Adds additional randomness
+      timeout: 20000,
     });
 
     return socketInstance;
@@ -69,6 +85,10 @@ const createSocket = async () => {
     socketInstance = io(SOCKET_URL, {
       transports: ["websocket"],
       autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
     });
     return socketInstance;
   }

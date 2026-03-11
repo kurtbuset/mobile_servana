@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { addDateSeparators } from '../utils/messageHelpers';
+import { sendMessage as sendMessageEmitter } from '../../../contexts/SocketContext/emitters';
 
 /**
- * Hook for sending messages via socket
+ * Hook for sending messages via socket using emitter functions
  */
 export const useSendMessage = (
   socket,
@@ -46,15 +47,25 @@ export const useSendMessage = (
         }, 100);
       }
 
-      // Send via socket
-      socket.emit('sendMessage', {
+      // Send via socket using emitter
+      const success = sendMessageEmitter(socket, {
         chat_body: text,
         chat_group_id: targetGroupId,
         client_id: clientId,
       });
 
-      console.log('clientId: ', clientId)
-      console.log('targetGroupId: ', targetGroupId)
+      if (!success) {
+        console.error('❌ Failed to send message - socket not connected');
+        // Remove optimistic message on error
+        setMessages((prev) => {
+          const messagesOnly = prev.filter((m) => m.type !== 'date' && m.id !== tempId);
+          return addDateSeparators(messagesOnly);
+        });
+        return { success: false };
+      }
+
+      console.log('clientId: ', clientId);
+      console.log('targetGroupId: ', targetGroupId);
 
       // Listen for delivery confirmation
       const handleDelivery = (data) => {

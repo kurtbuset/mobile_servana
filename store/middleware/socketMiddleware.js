@@ -2,23 +2,23 @@ import { addMessage } from '../slices/messages/messageSlice';
 
 /**
  * Socket middleware for real-time message handling
+ * Note: Socket connection is managed by SocketProvider
+ * This middleware only handles socket event emissions
  */
 export const createSocketMiddleware = (socket) => {
   return (store) => (next) => (action) => {
-    // Handle socket connection actions
+    // Note: socket/connect and socket/disconnect actions are deprecated
+    // Socket connection is now managed centrally by SocketProvider
+    // These actions are kept for backward compatibility but do nothing
+    
     if (action.type === 'socket/connect') {
-      if (socket) {
-        socket.connect();
-        console.log('🔌 Socket connected via middleware');
-      }
+      console.warn('⚠️ socket/connect action is deprecated - socket is managed by SocketProvider');
+      // Don't call socket.connect() - it's already connected by SocketProvider
     }
 
-    // Handle socket disconnect actions
     if (action.type === 'socket/disconnect') {
-      if (socket) {
-        socket.disconnect();
-        console.log('🔌 Socket disconnected via middleware');
-      }
+      console.warn('⚠️ socket/disconnect action is deprecated - socket is managed by SocketProvider');
+      // Don't call socket.disconnect() - it's managed by SocketProvider
     }
 
     // Handle send message actions
@@ -26,6 +26,8 @@ export const createSocketMiddleware = (socket) => {
       if (socket && socket.connected) {
         socket.emit('sendMessage', action.payload);
         console.log('📤 Message sent via socket middleware');
+      } else {
+        console.warn('⚠️ Cannot send message - socket not connected');
       }
     }
 
@@ -34,6 +36,8 @@ export const createSocketMiddleware = (socket) => {
       if (socket && socket.connected) {
         socket.emit('joinChatGroup', action.payload);
         console.log('📱 Joined chat group via middleware');
+      } else {
+        console.warn('⚠️ Cannot join chat group - socket not connected');
       }
     }
 
@@ -42,6 +46,8 @@ export const createSocketMiddleware = (socket) => {
       if (socket && socket.connected) {
         socket.emit('leaveChatGroup', action.payload);
         console.log('👋 Left chat group via middleware');
+      } else {
+        console.warn('⚠️ Cannot leave chat group - socket not connected');
       }
     }
 

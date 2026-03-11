@@ -1,21 +1,7 @@
 import axios from "axios";
-import { Platform } from "react-native";
 import SecureStorage from "../../utils/secureStorage";
 
-// Configuration for different environments
-const getAPIURL = () => {
-  if (Platform.OS === "web") {
-    return "http://localhost:5000";
-  }
-
-  if (__DEV__) {
-    return "http://192.168.137.135:5000";
-  }
-
-  return "https://your-production-backend.com";
-};
-
-export const API_URL = getAPIURL();
+import API_URL from "../../config/api";
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -72,3 +58,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+export { API_URL }
