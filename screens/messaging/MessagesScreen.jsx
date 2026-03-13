@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
@@ -21,7 +20,6 @@ import {
   MessageInput,
   CannedMessagesModal,
   DepartmentSelector,
-  TypingIndicator,
 } from "../../features/messaging/components";
 import {
   useMessageHistory,
@@ -195,6 +193,8 @@ export default function MessagesScreen() {
               isLoadingMessages={isLoadingMessages}
               hasMoreMessages={hasMoreMessages}
               isTyping={isTyping}
+              typingAgentName={typingAgentName}
+              typingAgentImage={typingAgentImage}
             />
 
             {/* Department Selection (if no chat group) */}
@@ -215,14 +215,6 @@ export default function MessagesScreen() {
               </View>
             )}
 
-            {/* Typing Indicator */}
-            {isTyping && (
-              <TypingIndicator 
-                agentImage={typingAgentImage}
-                agentName={typingAgentName}
-              />
-            )}
-
             {/* Input Bar */}
             <MessageInput
               value={inputMessage}
@@ -233,7 +225,7 @@ export default function MessagesScreen() {
               socket={socket}
               chatGroupId={chatGroupId}
               clientId={clientId}
-              clientName={client?.prof_id?.prof_firstname || 'Client'}
+              clientName={client?.prof_id?.prof_firstname || "Client"}
             />
 
             {/* Canned Messages Modal */}

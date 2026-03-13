@@ -1,12 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Image } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import React, { useEffect, useRef } from "react";
+import { View, Animated, StyleSheet, Image } from "react-native";
+import Feather from "react-native-vector-icons/Feather";
 
 /**
  * Typing Indicator Component
  * Shows animated dots with agent profile picture when agent is typing
  */
-export const TypingIndicator = ({ agentImage = null, agentName = 'Agent' }) => {
+export const TypingIndicator = ({ agentImage = null, agentName = "Agent" }) => {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -26,7 +26,7 @@ export const TypingIndicator = ({ agentImage = null, agentName = 'Agent' }) => {
             duration: 500,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
     };
 
@@ -54,7 +54,7 @@ export const TypingIndicator = ({ agentImage = null, agentName = 'Agent' }) => {
             <Image
               source={{ uri: agentImage }}
               style={styles.avatar}
-              defaultSource={require('../../../assets/userblank.jpg')}
+              defaultSource={require("../../../assets/userblank.jpg")}
             />
           ) : (
             <View style={styles.avatarPlaceholder}>
@@ -132,13 +132,13 @@ export const TypingIndicator = ({ agentImage = null, agentName = 'Agent' }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 4,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    marginBottom: 0,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
   },
   avatarContainer: {
     marginRight: 8,
@@ -148,25 +148,25 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
   },
   avatarPlaceholder: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   bubble: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 20,
     borderBottomLeftRadius: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -176,15 +176,15 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   dots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   dot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#9CA3AF',
+    backgroundColor: "#9CA3AF",
     marginHorizontal: 3,
   },
 });

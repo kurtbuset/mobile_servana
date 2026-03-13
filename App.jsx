@@ -9,7 +9,7 @@ import SplashScreen from "./screens/SplashScreen";
 
 // Phase 3 Context Providers
 import { AuthProvider } from "./contexts/AuthContext";
-import { SocketProvider } from "./contexts/SocketContext";
+import { SocketProvider } from "./contexts/SocketContext-simple";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 

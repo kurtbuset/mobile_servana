@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { addDateSeparators } from '../utils/messageHelpers';
-import { sendMessage as sendMessageEmitter } from '../../../contexts/SocketContext/emitters';
+import { useState } from "react";
+import { addDateSeparators } from "../utils/messageHelpers";
+import { sendMessage as sendMessageEmitter } from "../../../contexts/SocketContext-simple";
 
 /**
  * Hook for sending messages via socket using emitter functions
@@ -11,7 +11,7 @@ export const useSendMessage = (
   clientId,
   setMessages,
   shouldAutoScroll,
-  flatListRef
+  flatListRef,
 ) => {
   const [sending, setSending] = useState(false);
 
@@ -27,15 +27,18 @@ export const useSendMessage = (
       const now = new Date();
       const optimisticMessage = {
         id: tempId,
-        sender: 'user',
+        sender: "user",
         content: text,
         timestamp: now.toISOString(),
-        displayTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        displayTime: now.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         isPending: true,
       };
 
       setMessages((prev) => {
-        const messagesOnly = prev.filter((m) => m.type !== 'date');
+        const messagesOnly = prev.filter((m) => m.type !== "date");
         const updatedMessages = [...messagesOnly, optimisticMessage];
         return addDateSeparators(updatedMessages);
       });
@@ -55,52 +58,58 @@ export const useSendMessage = (
       });
 
       if (!success) {
-        console.error('❌ Failed to send message - socket not connected');
+        console.error("❌ Failed to send message - socket not connected");
         // Remove optimistic message on error
         setMessages((prev) => {
-          const messagesOnly = prev.filter((m) => m.type !== 'date' && m.id !== tempId);
+          const messagesOnly = prev.filter(
+            (m) => m.type !== "date" && m.id !== tempId,
+          );
           return addDateSeparators(messagesOnly);
         });
         return { success: false };
       }
 
-      console.log('clientId: ', clientId);
-      console.log('targetGroupId: ', targetGroupId);
+      console.log("clientId: ", clientId);
+      console.log("targetGroupId: ", targetGroupId);
 
       // Listen for delivery confirmation
       const handleDelivery = (data) => {
         if (data.chat_group_id === targetGroupId) {
           setMessages((prev) => {
-            const messagesOnly = prev.filter((m) => m.type !== 'date');
+            const messagesOnly = prev.filter((m) => m.type !== "date");
             const updatedMessages = messagesOnly.map((m) =>
-              m.id === tempId ? { ...m, id: `msg-${data.chat_id}`, isPending: false } : m
+              m.id === tempId
+                ? { ...m, id: `msg-${data.chat_id}`, isPending: false }
+                : m,
             );
             return addDateSeparators(updatedMessages);
           });
-          socket.off('messageDelivered', handleDelivery);
+          socket.off("messageDelivered", handleDelivery);
         }
       };
 
-      socket.on('messageDelivered', handleDelivery);
+      socket.on("messageDelivered", handleDelivery);
 
       // Handle errors
       const handleError = (error) => {
         if (error.chat_group_id === targetGroupId) {
-          console.error('❌ Failed to send message:', error);
+          console.error("❌ Failed to send message:", error);
           // Remove optimistic message on error
           setMessages((prev) => {
-            const messagesOnly = prev.filter((m) => m.type !== 'date' && m.id !== tempId);
+            const messagesOnly = prev.filter(
+              (m) => m.type !== "date" && m.id !== tempId,
+            );
             return addDateSeparators(messagesOnly);
           });
-          socket.off('messageError', handleError);
+          socket.off("messageError", handleError);
         }
       };
 
-      socket.on('messageError', handleError);
+      socket.on("messageError", handleError);
 
       return { success: true };
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
       return { success: false };
     } finally {
       setSending(false);

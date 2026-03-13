@@ -1,7 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import { emitTyping, emitStopTyping } from '../../../contexts/SocketContext/emitters';
+import React, { useRef, useState, useEffect } from "react";
+import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import Feather from "react-native-vector-icons/Feather";
+import {
+  emitTyping,
+  emitStopTyping,
+} from "../../../contexts/SocketContext-simple";
 
 /**
  * Message Input Component
@@ -34,7 +37,7 @@ export const MessageInput = ({
         emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
-          userType: 'client',
+          userType: "client",
         });
       }
     };
@@ -51,9 +54,9 @@ export const MessageInput = ({
       setIsTyping(true);
       emitTyping(socket, {
         chatGroupId,
-        userName: clientName || 'Client',
+        userName: clientName || "Client",
         userId: clientId,
-        userType: 'client',
+        userType: "client",
       });
     }
 
@@ -69,7 +72,7 @@ export const MessageInput = ({
         emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
-          userType: 'client',
+          userType: "client",
         });
       }
     }, 2000);
@@ -80,7 +83,7 @@ export const MessageInput = ({
       emitStopTyping(socket, {
         chatGroupId,
         userId: clientId,
-        userType: 'client',
+        userType: "client",
       });
     }
   };
@@ -93,7 +96,7 @@ export const MessageInput = ({
         emitStopTyping(socket, {
           chatGroupId,
           userId: clientId,
-          userType: 'client',
+          userType: "client",
         });
       }
       onSend();
@@ -135,15 +138,11 @@ export const MessageInput = ({
         disabled={disabled || !value.trim()}
         style={[
           styles.sendButton,
-          (disabled || !value.trim()) && styles.sendButtonDisabled
+          (disabled || !value.trim()) && styles.sendButtonDisabled,
         ]}
         activeOpacity={0.7}
       >
-        <Feather
-          name="send"
-          size={20}
-          color="#fff"
-        />
+        <Feather name="send" size={20} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -151,14 +150,14 @@ export const MessageInput = ({
 
 const styles = StyleSheet.create({
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderTopWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: "#F3F4F6",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -168,9 +167,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3E8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 8,
   },
   input: {
@@ -180,31 +179,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     marginRight: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     maxHeight: 100,
   },
   inputDisabled: {
-    backgroundColor: '#F3F4F6',
-    color: '#9CA3AF',
-    borderColor: '#E5E7EB',
+    backgroundColor: "#F3F4F6",
+    color: "#9CA3AF",
+    borderColor: "#E5E7EB",
   },
   sendButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#7C3AED',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#7C3AED',
+    backgroundColor: "#7C3AED",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#7C3AED",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
   sendButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: "#D1D5DB",
     shadowOpacity: 0,
     elevation: 0,
   },
