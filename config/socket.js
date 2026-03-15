@@ -8,11 +8,16 @@ const getSocketURL = () => {
     return "http://localhost:5000";
   }
 
-  // For real device, use your computer's IP address
-  // For emulator, use emulator-specific address
+  // For Android emulator, use special IP that maps to host machine
+  if (Platform.OS === "android" && __DEV__) {
+    // 10.0.2.2 is the special IP for Android emulator to access host machine
+    return "http://10.0.2.2:5000";
+  }
+
+  // For iOS simulator or real device in development
   if (__DEV__) {
-    // Development mode - use your computer's IP
-    return "http://192.168.1.9:5000"; // Your computer's Wi-Fi IP
+    // Use your computer's local network IP
+    return "http://192.168.67.240:5000";
   }
 
   // Production mode
@@ -22,6 +27,7 @@ const getSocketURL = () => {
 const SOCKET_URL = getSocketURL();
 
 console.log(`🌐 Socket connecting to: ${SOCKET_URL}`);
+console.log(`📱 Platform: ${Platform.OS}, Dev mode: ${__DEV__}`);
 
 let socketInstance = null;
 
@@ -30,6 +36,7 @@ const createSocket = async () => {
   try {
     // If socket already exists, disconnect it first
     if (socketInstance) {
+      console.log("🔌 Disconnecting existing socket instance");
       socketInstance.disconnect();
       socketInstance = null;
     }
@@ -40,12 +47,14 @@ const createSocket = async () => {
     if (!token) {
       console.warn("⚠️ No token found in secure storage for socket connection");
       socketInstance = io(SOCKET_URL, {
-        transports: ["websocket"],
+        transports: ["websocket", "polling"], // Try websocket first, fallback to polling
         autoConnect: false,
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 20000,
+        upgrade: true,
+        rememberUpgrade: true,
       });
       return socketInstance;
     }
@@ -61,7 +70,7 @@ const createSocket = async () => {
     const reconnectionDelay = baseDelay + jitter;
 
     socketInstance = io(SOCKET_URL, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"], // Try websocket first, fallback to polling
       autoConnect: false,
       auth: {
         token: token,
@@ -74,8 +83,33 @@ const createSocket = async () => {
       reconnectionAttempts: 5,
       reconnectionDelay: reconnectionDelay,
       reconnectionDelayMax: 10000,
-      randomizationFactor: 0.5,  // Adds additional randomness
+      randomizationFactor: 0.5, // Adds additional randomness
       timeout: 20000,
+      // Force new connection
+      forceNew: false,
+      // Upgrade transport
+      upgrade: true,
+      // Remember upgrade
+      rememberUpgrade: true,
+    });
+
+    // Add detailed error logging
+    socketInstance.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error.message);
+      console.error("❌ Error type:", error.type);
+      console.error("❌ Error description:", error.description);
+    });
+
+    socketInstance.on("error", (error) => {
+      console.error("❌ Socket error:", error);
+    });
+
+    socketInstance.io.on("reconnect_attempt", (attempt) => {
+      console.log(`🔄 Reconnection attempt ${attempt}`);
+    });
+
+    socketInstance.io.on("reconnect_failed", () => {
+      console.error("❌ Reconnection failed after all attempts");
     });
 
     return socketInstance;
@@ -83,12 +117,14 @@ const createSocket = async () => {
     console.error("❌ Error creating authenticated socket:", error);
     // Fallback to socket without auth
     socketInstance = io(SOCKET_URL, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 20000,
+      upgrade: true,
+      rememberUpgrade: true,
     });
     return socketInstance;
   }

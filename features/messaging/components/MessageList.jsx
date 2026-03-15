@@ -39,13 +39,7 @@ export const MessageList = ({
       return <DateSeparator date={item.date} />;
     }
 
-    return (
-      <MessageBubble
-        message={item.content}
-        time={item.displayTime}
-        isUser={item.sender === "user"}
-      />
-    );
+    return <MessageBubble message={item} isUser={item.sender === "user"} />;
   };
 
   const renderFooter = () => {
@@ -83,16 +77,15 @@ export const MessageList = ({
       scrollEventThrottle={16}
       ListHeaderComponent={renderHeader}
       ListFooterComponent={renderFooter}
-      maintainVisibleContentPosition={{
-        minIndexForVisible: 0,
-        autoscrollToTopThreshold: 10,
-      }}
-      inverted={false}
+      style={styles.flatList}
     />
   );
 };
 
 const styles = StyleSheet.create({
+  flatList: {
+    flex: 1,
+  },
   messageList: {
     paddingHorizontal: 16,
     paddingTop: 16,

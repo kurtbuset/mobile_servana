@@ -83,6 +83,12 @@ export const useMessageSocket = (
               minute: "2-digit",
             },
           ),
+          agentImage:
+            message.sender_type === "agent"
+              ? message.agent_profile_picture
+              : null,
+          agentName:
+            message.sender_type === "agent" ? message.agent_name : null,
         };
 
         setMessages((prev) => {
@@ -106,7 +112,7 @@ export const useMessageSocket = (
       },
       onMessageDelivered: (data) => {
         // Handle message delivery confirmation if needed'
-        console.log('data: ', data)
+        console.log("data: ", data);
         console.log("✅ Message delivered:", data.chat_id);
       },
       onMessageError: (error) => {

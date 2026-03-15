@@ -54,6 +54,18 @@ export const SocketProvider = ({ children }) => {
 
         const handleConnectError = (error) => {
           console.error("❌ Socket connection error:", error.message);
+          console.error("❌ Error details:", {
+            type: error.type,
+            description: error.description,
+            context: error.context,
+          });
+
+          // Provide user-friendly error messages
+          if (error.message.includes("websocket error")) {
+            console.error("💡 Tip: Check if backend is running and accessible");
+            console.error("💡 Tip: Verify your IP address in config/socket.js");
+          }
+
           setIsConnected(false);
         };
 

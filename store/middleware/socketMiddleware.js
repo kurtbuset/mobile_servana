@@ -25,7 +25,6 @@ export const createSocketMiddleware = (socket) => {
     if (action.type === 'socket/sendMessage') {
       if (socket && socket.connected) {
         socket.emit('sendMessage', action.payload);
-        console.log('📤 Message sent via socket middleware');
       } else {
         console.warn('⚠️ Cannot send message - socket not connected');
       }
