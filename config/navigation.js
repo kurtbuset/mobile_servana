@@ -23,6 +23,8 @@ export const ROUTES = {
   HOME: "HomeScreen",
   DASHBOARD: "Dashboard",
   MESSAGES: "Messages",
+  POST_CHAT: "PostChat",
+  CHAT_HISTORY: "ChatHistory",
   PROFILE: "Profile",
 
   // Profile Stack

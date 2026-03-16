@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   Keyboard,
   ActivityIndicator,
   Text,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
+import Feather from 'react-native-vector-icons/Feather';
 import { selectClient } from "../../store/slices/profile";
 import { useSocket } from "../../contexts";
 import {
@@ -20,6 +22,7 @@ import {
   MessageInput,
   CannedMessagesModal,
   DepartmentSelector,
+  EndChatModal,
 } from "../../features/messaging/components";
 import {
   useMessageHistory,
@@ -27,7 +30,9 @@ import {
   useSendMessage,
   useChatGroup,
   useDepartments,
+  useEndChat,
 } from "../../features/messaging/hooks";
+import { formatChatStats } from "../../features/messaging/utils/chatStats";
 
 /**
  * Messages Screen - Container Component
@@ -46,21 +51,25 @@ export default function MessagesScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef(null);
 
+  // Persistent messages that NEVER get cleared
+  const [persistentMessages, setPersistentMessages] = useState([]);
+
   // Chat Group Management
   const {
     chatGroupId,
     isLoadingChatGroup,
     initializeChatGroup,
     createChatGroupWithDepartment,
+    resetChatGroup,
   } = useChatGroup(clientId);
 
   // Departments (for initial selection)
   const { departments, loadDepartments } = useDepartments();
 
-  // Message History with Pagination
+  // Message History with Pagination - but we'll override its messages
   const {
-    messages,
-    setMessages,
+    messages: historyMessages,
+    setMessages: setHistoryMessages,
     isLoadingMessages,
     hasMoreMessages,
     loadMessages,
@@ -69,25 +78,80 @@ export default function MessagesScreen() {
     setShouldAutoScroll,
   } = useMessageHistory(chatGroupId, flatListRef);
 
-  // Socket Integration
+  // Sync history messages with persistent messages
+  useEffect(() => {
+    if (historyMessages.length > 0) {
+      setPersistentMessages(prev => {
+        // Merge new messages with existing ones, avoiding duplicates
+        const existingIds = new Set(prev.map(m => m.id));
+        // Filter out date separators and only keep actual messages
+        const actualMessages = historyMessages.filter(m => m.type !== 'date' && !existingIds.has(m.id));
+        return [...prev, ...actualMessages];
+      });
+    }
+  }, [historyMessages]);
+
+  // Use persistent messages instead of history messages
+  const messages = persistentMessages;
+
+  // Debug persistent messages
+  useEffect(() => {
+    console.log('📱 Persistent messages updated:', persistentMessages.length, persistentMessages);
+  }, [persistentMessages]);
+
+  // Socket Integration - use persistent messages
   const { isTyping, typingAgentName, typingAgentImage } = useMessageSocket(
     socket,
     chatGroupId,
     clientId,
-    setMessages,
+    setPersistentMessages, // Use persistent messages setter
     shouldAutoScroll,
     flatListRef,
   );
 
-  // Send Message
+  // Send Message - use persistent messages
   const { sendMessage: sendMessageViaSocket, sending } = useSendMessage(
     socket,
     chatGroupId,
     clientId,
-    setMessages,
+    setPersistentMessages, // Use persistent messages setter
     shouldAutoScroll,
     flatListRef,
   );
+
+  // End Chat functionality
+  const {
+    isLoading: isEndingChat,
+    showEndChatModal,
+    handleEndChat,
+    showEndChatConfirmation,
+    hideEndChatModal,
+  } = useEndChat(chatGroupId, (response, feedbackData) => {
+    // Handle successful chat end - keep everything continuous
+    console.log('Chat ended successfully:', response);
+    
+    // Add a system message to indicate the chat session ended
+    const endMessage = {
+      id: `end_${Date.now()}`,
+      sender: "system",
+      content: "Chat session ended. You can continue with a new inquiry below.",
+      timestamp: new Date().toISOString(),
+      displayTime: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    
+    // Add the end message to persistent messages
+    setPersistentMessages(prev => [...prev, endMessage]);
+    
+    // Reset only the chat group ID to allow new department selection
+    // But DON'T clear messages - they should remain visible
+    resetChatGroup();
+    
+    // Load departments for potential new inquiry
+    loadDepartments();
+  });
 
   // Initialize chat on mount
   useEffect(() => {
@@ -95,14 +159,21 @@ export default function MessagesScreen() {
 
     const init = async () => {
       const hasExistingChat = await initializeChatGroup();
+      
       if (!hasExistingChat) {
         // No existing chat, load departments for selection
+        console.log('Loading departments...');
         await loadDepartments();
       }
     };
 
     init();
   }, [clientId]);
+
+  // Debug departments
+  useEffect(() => {
+    console.log('Departments updated:', departments);
+  }, [departments]);
 
   // Keyboard handling
   useEffect(() => {
@@ -135,6 +206,20 @@ export default function MessagesScreen() {
       department.dept_id,
     );
     if (newChatGroupId) {
+      // Add a system message to show new department inquiry
+      const newInquiryMessage = {
+        id: `new_inquiry_${Date.now()}`,
+        sender: "system",
+        content: `New inquiry started with ${department.dept_name} department.`,
+        timestamp: new Date().toISOString(),
+        displayTime: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      
+      setPersistentMessages(prev => [...prev, newInquiryMessage]);
+      
       // Send initial message with department name
       await sendMessageViaSocket(department.dept_name, newChatGroupId);
     }
@@ -165,9 +250,9 @@ export default function MessagesScreen() {
     }
   };
 
-  // Handle end chat
-  const handleEndChat = () => {
-    navigation.navigate("Dashboard");
+  // Handle end chat button press
+  const handleEndChatPress = () => {
+    showEndChatConfirmation();
   };
 
   return (
@@ -182,28 +267,61 @@ export default function MessagesScreen() {
             {/* Header */}
             <MessageHeader
               onBack={() => navigation.goBack()}
-              onEndChat={handleEndChat}
+              onEndChat={handleEndChatPress}
+              isConnected={socket?.connected}
+              chatStatus={chatGroupId ? 'active' : 'ready'}
+              departmentName={null} // Remove department name to keep it simple
+              showEndChatButton={!!chatGroupId}
             />
 
-            {/* Message List */}
-            <MessageList
-              messages={messages}
-              flatListRef={flatListRef}
-              onScroll={handleScroll}
-              isLoadingMessages={isLoadingMessages}
-              hasMoreMessages={hasMoreMessages}
-              isTyping={isTyping}
-              typingAgentName={typingAgentName}
-              typingAgentImage={typingAgentImage}
-            />
-
-            {/* Department Selection (if no chat group) */}
-            {!isLoadingChatGroup && !chatGroupId && departments.length > 0 && (
-              <DepartmentSelector
-                departments={departments}
-                onSelect={handleDepartmentSelect}
+            {/* Message List - Always show if there are messages */}
+            {messages.length > 0 && (
+              <MessageList
+                messages={messages}
+                flatListRef={flatListRef}
+                onScroll={handleScroll}
+                isLoadingMessages={isLoadingMessages}
+                hasMoreMessages={hasMoreMessages}
+                isTyping={isTyping}
+                typingAgentName={typingAgentName}
+                typingAgentImage={typingAgentImage}
               />
             )}
+
+            {/* Department Selection - Show when no active chat (for new inquiry) */}
+            {!isLoadingChatGroup && !chatGroupId && (
+              <View style={styles.departmentSelectorContainer}>
+                <Text style={styles.newInquiryText}>
+                  Select department for your new inquiry:
+                </Text>
+                {departments.length > 0 ? (
+                  <View style={styles.departmentButtonsContainer}>
+                    {departments.map((department) => (
+                      <TouchableOpacity
+                        key={department.dept_id}
+                        style={styles.departmentButton}
+                        onPress={() => handleDepartmentSelect(department)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.departmentButtonText}>
+                          {department.dept_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.loadingDepartments}>
+                    <ActivityIndicator size="small" color="#7C3AED" />
+                    <Text style={styles.loadingDepartmentsText}>
+                      Loading departments...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Floating Chat History Button (only when in active chat with messages) */}
+            {/* Removed as requested by user */}
 
             {/* Loading Indicator */}
             {isLoadingChatGroup && (
@@ -215,18 +333,20 @@ export default function MessagesScreen() {
               </View>
             )}
 
-            {/* Input Bar */}
-            <MessageInput
-              value={inputMessage}
-              onChangeText={setInputMessage}
-              onSend={handleSendMessage}
-              onOpenCannedMessages={() => setShowCannedMessages(true)}
-              disabled={!chatGroupId || sending}
-              socket={socket}
-              chatGroupId={chatGroupId}
-              clientId={clientId}
-              clientName={client?.prof_id?.prof_firstname || "Client"}
-            />
+            {/* Input Bar - Only show when chat is active */}
+            {chatGroupId && (
+              <MessageInput
+                value={inputMessage}
+                onChangeText={setInputMessage}
+                onSend={handleSendMessage}
+                onOpenCannedMessages={() => setShowCannedMessages(true)}
+                disabled={!chatGroupId || sending}
+                socket={socket}
+                chatGroupId={chatGroupId}
+                clientId={clientId}
+                clientName={client?.prof_id?.prof_firstname || "Client"}
+              />
+            )}
 
             {/* Canned Messages Modal */}
             <CannedMessagesModal
@@ -236,6 +356,16 @@ export default function MessagesScreen() {
                 handleSendMessage(message);
                 setShowCannedMessages(false);
               }}
+            />
+
+            {/* End Chat Modal */}
+            <EndChatModal
+              visible={showEndChatModal}
+              onClose={hideEndChatModal}
+              onConfirmEndChat={handleEndChat}
+              chatDuration={messages.length > 0 ? formatChatStats(messages, clientId).duration : null}
+              messageCount={messages.length}
+              isLoading={isEndingChat}
             />
           </View>
         </TouchableWithoutFeedback>
@@ -261,5 +391,58 @@ const styles = StyleSheet.create({
     color: "#7C3AED",
     fontSize: 16,
     fontWeight: "600",
+  },
+  departmentSelectorContainer: {
+    backgroundColor: "#F9FAFB",
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    paddingBottom: 20,
+  },
+  newInquiryText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  departmentButtonsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  departmentButton: {
+    backgroundColor: '#7C3AED',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  departmentButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loadingDepartments: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingDepartmentsText: {
+    marginLeft: 8,
+    color: '#6B7280',
+    fontSize: 14,
   },
 });

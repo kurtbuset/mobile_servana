@@ -8,6 +8,7 @@ import { messageAPI } from "../../../shared/api";
 export const useChatGroup = (clientId) => {
   const [chatGroupId, setChatGroupId] = useState(null);
   const [isLoadingChatGroup, setIsLoadingChatGroup] = useState(true);
+  const [skipExistingChat, setSkipExistingChat] = useState(false);
 
   const initializeChatGroup = async () => {
     if (!clientId) return false;
@@ -15,13 +16,24 @@ export const useChatGroup = (clientId) => {
     try {
       setIsLoadingChatGroup(true);
 
-      // Try to get latest chat group using centralized API
+      // If we're skipping existing chats (after end chat), don't load existing
+      if (skipExistingChat) {
+        setSkipExistingChat(false); // Reset flag
+        return false;
+      }
+
+      // Try to get latest ACTIVE chat group using centralized API
       const chatGroup = await messageAPI.getLatestChatGroup();
 
-      setChatGroupId(chatGroup.chat_group_id);
-      return true; // Has existing chat
+      // Only load if the chat exists and is active
+      if (chatGroup && chatGroup.chat_group_id) {
+        setChatGroupId(chatGroup.chat_group_id);
+        return true; // Has existing active chat
+      }
+      
+      return false; // No active chat
     } catch (error) {
-      console.log("No existing chat group found");
+      console.log("No existing active chat group found:", error.message);
       return false; // No existing chat
     } finally {
       setIsLoadingChatGroup(false);
@@ -43,11 +55,18 @@ export const useChatGroup = (clientId) => {
     }
   };
 
+  const resetChatGroup = () => {
+    setChatGroupId(null);
+    setIsLoadingChatGroup(false);
+    setSkipExistingChat(true); // Skip loading existing chats on next init
+  };
+
   return {
     chatGroupId,
     isLoadingChatGroup,
     initializeChatGroup,
     createChatGroupWithDepartment,
+    resetChatGroup,
   };
 };
 

@@ -96,11 +96,11 @@ export const useMessageSocket = (
           const exists = messagesOnly.some((m) => m.id === newMessage.id);
           if (exists) {
             console.log("⚠️ Message already exists, skipping duplicate");
-            return addDateSeparators(messagesOnly);
+            return messagesOnly; // Don't add date separators
           }
 
           const updatedMessages = [...messagesOnly, newMessage];
-          return addDateSeparators(updatedMessages);
+          return updatedMessages; // Don't add date separators
         });
 
         // Scroll to bottom if user is at bottom
