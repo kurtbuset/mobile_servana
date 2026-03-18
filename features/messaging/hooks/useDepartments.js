@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { departmentAPI } from "../../../shared/api";
 
 /**
@@ -9,7 +9,7 @@ export const useDepartments = () => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const loadDepartments = async () => {
+  const loadDepartments = useCallback(async () => {
     try {
       setLoading(true);
       // Use centralized API
@@ -20,7 +20,7 @@ export const useDepartments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     departments,

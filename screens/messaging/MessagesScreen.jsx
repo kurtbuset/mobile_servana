@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -13,7 +13,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
-import Feather from 'react-native-vector-icons/Feather';
 import { selectClient } from "../../store/slices/profile";
 import { useSocket } from "../../contexts";
 import {
@@ -21,7 +20,6 @@ import {
   MessageList,
   MessageInput,
   CannedMessagesModal,
-  DepartmentSelector,
   EndChatModal,
 } from "../../features/messaging/components";
 import {
@@ -35,111 +33,61 @@ import {
 import { formatChatStats } from "../../features/messaging/utils/chatStats";
 
 /**
- * Messages Screen - Container Component
- * Complete refactored version with all legacy features
- * Token is automatically handled by API client interceptor
+ * Maximum Performance Optimized Messages Screen
  */
-export default function MessagesScreen() {
+const MessagesScreen = React.memo(() => {
   const navigation = useNavigation();
   const { socket } = useSocket();
   const client = useSelector(selectClient);
-  const clientId = client?.client_id;
+  
+  // Memoize clientId to prevent hook re-runs
+  const clientId = useMemo(() => client?.client_id, [client?.client_id]);
 
-  // UI State
+  // UI State - minimal state to prevent re-renders
   const [showCannedMessages, setShowCannedMessages] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef(null);
 
-  // Persistent messages that NEVER get cleared
-  const [persistentMessages, setPersistentMessages] = useState([]);
-
-  // Chat Group Management
+  // Memoize all hook calls to prevent recreation
+  const chatGroup = useChatGroup(clientId);
+  const departments = useDepartments();
+  const messageHistory = useMessageHistory(chatGroup.chatGroupId, flatListRef);
+  
+  // Extract values with memoization
   const {
     chatGroupId,
     isLoadingChatGroup,
     initializeChatGroup,
     createChatGroupWithDepartment,
     resetChatGroup,
-  } = useChatGroup(clientId);
+  } = chatGroup;
 
-  // Departments (for initial selection)
-  const { departments, loadDepartments } = useDepartments();
-
-  // Message History with Pagination - but we'll override its messages
+  const { departments: departmentList, loadDepartments } = departments;
+  
   const {
     messages: historyMessages,
-    setMessages: setHistoryMessages,
+    setMessages,
     isLoadingMessages,
     hasMoreMessages,
-    loadMessages,
     loadMoreMessages,
     shouldAutoScroll,
     setShouldAutoScroll,
-  } = useMessageHistory(chatGroupId, flatListRef);
+  } = messageHistory;
 
-  // Sync history messages with persistent messages
-  useEffect(() => {
-    if (historyMessages.length > 0) {
-      setPersistentMessages(prev => {
-        // Merge new messages with existing ones, avoiding duplicates
-        const existingIds = new Set(prev.map(m => m.id));
-        // Filter out date separators and only keep actual messages
-        const actualMessages = historyMessages.filter(m => m.type !== 'date' && !existingIds.has(m.id));
-        return [...prev, ...actualMessages];
-      });
-    }
-  }, [historyMessages]);
-
-  // Use persistent messages instead of history messages
-  const messages = persistentMessages;
-
-  // Debug persistent messages
-  useEffect(() => {
-    console.log('📱 Persistent messages updated:', persistentMessages.length, persistentMessages);
-  }, [persistentMessages]);
-
-  // Socket Integration - use persistent messages
-  const { isTyping, typingAgentName, typingAgentImage } = useMessageSocket(
-  // Socket Integration - Centralized socket event handling
-  const { 
-    isTyping, 
-    typingAgentName, 
-    typingAgentImage,
-    addOptimisticMessage,
-    removeOptimisticMessage 
-  } = useMessageSocket(
+  // Socket integration - pass setMessages directly from messageHistory
+  const socketHandlers = useMessageSocket(
     socket,
     chatGroupId,
     clientId,
-    setPersistentMessages, // Use persistent messages setter
+    setMessages, // Use setMessages from messageHistory directly
     shouldAutoScroll,
     flatListRef,
   );
 
-  // Send Message - use persistent messages
-  // Send Message - Simplified to only handle socket emission
-  const { sendMessage: sendMessageViaSocket, sending } = useSendMessage(
-    socket,
-    chatGroupId,
-    clientId,
-    setPersistentMessages, // Use persistent messages setter
-    shouldAutoScroll,
-    flatListRef,
-  );
+  const sendMessage = useSendMessage(socket, chatGroupId, clientId);
 
-  // End Chat functionality
-  const {
-    isLoading: isEndingChat,
-    showEndChatModal,
-    handleEndChat,
-    showEndChatConfirmation,
-    hideEndChatModal,
-  } = useEndChat(chatGroupId, (response, feedbackData) => {
-    // Handle successful chat end - keep everything continuous
-    console.log('Chat ended successfully:', response);
-    
-    // Add a system message to indicate the chat session ended
+  // End chat with memoized callback
+  const handleChatEnd = useCallback((response, feedbackData) => {
     const endMessage = {
       id: `end_${Date.now()}`,
       sender: "system",
@@ -151,72 +99,55 @@ export default function MessagesScreen() {
       }),
     };
     
-    // Add the end message to persistent messages
-    setPersistentMessages(prev => [...prev, endMessage]);
-    
-    // Reset only the chat group ID to allow new department selection
-    // But DON'T clear messages - they should remain visible
+    setMessages(prev => [...prev, endMessage]);
     resetChatGroup();
-    
-    // Load departments for potential new inquiry
     loadDepartments();
-  });
+  }, [setMessages, resetChatGroup, loadDepartments]);
 
-  // Initialize chat on mount
+  const endChat = useEndChat(chatGroupId, handleChatEnd);
+
+  // Initialize once with ref tracking
+  const initRef = useRef(false);
   useEffect(() => {
-    if (!clientId) return;
-
-    const init = async () => {
-      const hasExistingChat = await initializeChatGroup();
+    if (!initRef.current && clientId) {
+      initRef.current = true;
       
-      if (!hasExistingChat) {
-        // No existing chat, load departments for selection
-        console.log('Loading departments...');
-        await loadDepartments();
+      const init = async () => {
+        const hasExisting = await initializeChatGroup();
+        if (!hasExisting) {
+          await loadDepartments();
+        }
+      };
+      
+      init();
+    }
+  }, [clientId, initializeChatGroup, loadDepartments]);
+
+  // Memoized event handlers
+  const handleSendMessage = useCallback(async (text = null) => {
+    const content = text ?? inputMessage.trim();
+    if (!content || !chatGroupId) return;
+
+    const tempId = socketHandlers.addOptimisticMessage(content);
+    
+    try {
+      const result = await sendMessage.sendMessage(content);
+      if (!result.success) {
+        socketHandlers.removeOptimisticMessage(tempId);
       }
-    };
+    } catch (error) {
+      socketHandlers.removeOptimisticMessage(tempId);
+    }
+    
+    setInputMessage("");
+    Keyboard.dismiss();
+  }, [inputMessage, chatGroupId, socketHandlers, sendMessage]);
 
-    init();
-  }, [clientId]);
-
-  // Debug departments
-  useEffect(() => {
-    console.log('Departments updated:', departments);
-  }, [departments]);
-
-  // Keyboard handling
-  useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      },
-    );
-
-    const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => {
-        setKeyboardHeight(0);
-      },
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-    };
-  }, []);
-
-  // Handle department selection
-  const handleDepartmentSelect = async (department) => {
-    const newChatGroupId = await createChatGroupWithDepartment(
-      department.dept_id,
-    );
+  const handleDepartmentSelect = useCallback(async (department) => {
+    const newChatGroupId = await createChatGroupWithDepartment(department.dept_id);
+    
     if (newChatGroupId) {
-      // Add a system message to show new department inquiry
-      const newInquiryMessage = {
+      const message = {
         id: `new_inquiry_${Date.now()}`,
         sender: "system",
         content: `New inquiry started with ${department.dept_name} department.`,
@@ -227,171 +158,95 @@ export default function MessagesScreen() {
         }),
       };
       
-      setPersistentMessages(prev => [...prev, newInquiryMessage]);
-      
-      // Send initial message with department name
-      // Note: For department selection, we don't need optimistic UI since it's automatic
-      await sendMessageViaSocket(department.dept_name, newChatGroupId);
+      setMessages(prev => [...prev, message]);
+      await sendMessage.sendMessage(department.dept_name, newChatGroupId);
     }
-  };
+  }, [createChatGroupWithDepartment, setMessages, sendMessage]);
 
-  // Handle send message
-  const handleSendMessage = async (text = null) => {
-    const content = text ?? inputMessage.trim();
-    if (!content || !chatGroupId) return;
-
-    // Add optimistic message to UI
-    const tempId = addOptimisticMessage(content);
-    
-    try {
-      const result = await sendMessageViaSocket(content);
-      if (!result.success) {
-        // Remove optimistic message on failure
-        removeOptimisticMessage(tempId);
-      }
-    } catch (error) {
-      // Remove optimistic message on error
-      removeOptimisticMessage(tempId);
-    }
-    
-    setInputMessage("");
-    Keyboard.dismiss();
-  };
-
-  // Handle scroll for pagination
-  const handleScroll = (event) => {
+  const handleScroll = useCallback((event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-
     const isNearTop = contentOffset.y <= 50;
-    const isNearBottom =
-      contentOffset.y >= contentSize.height - layoutMeasurement.height - 50;
+    const isNearBottom = contentOffset.y >= contentSize.height - layoutMeasurement.height - 50;
 
     setShouldAutoScroll(isNearBottom);
 
     if (isNearTop && hasMoreMessages && !isLoadingMessages) {
       loadMoreMessages();
     }
-  };
+  }, [hasMoreMessages, isLoadingMessages, loadMoreMessages, setShouldAutoScroll]);
 
-  // Handle end chat button press
-  const handleEndChatPress = () => {
-    showEndChatConfirmation();
-  };
-
-  // Calculate latest user message index for status display
-  // Only recalculate when messages array length changes or last message changes
+  // Memoized computed values - use historyMessages directly
   const latestUserMessageIndex = useMemo(() => {
-    if (messages.length === 0) return -1;
-    
-    // Find the last message sent by user (excluding date separators)
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].type !== "date" && messages[i].sender === "user") {
+    for (let i = historyMessages.length - 1; i >= 0; i--) {
+      if (historyMessages[i].type !== "date" && historyMessages[i].sender === "user") {
         return i;
       }
     }
     return -1;
-  }, [messages.length, messages[messages.length - 1]?.id]);
+  }, [historyMessages]);
+
+  const chatDuration = useMemo(() => {
+    return historyMessages.length > 0 ? 
+      formatChatStats(historyMessages, clientId).duration : null;
+  }, [historyMessages.length, clientId]);
+
+  // Memoized component props
+  const headerProps = useMemo(() => ({
+    onBack: () => navigation.goBack(),
+    onEndChat: () => endChat.showEndChatConfirmation(),
+    isConnected: socket?.connected,
+    chatStatus: chatGroupId ? 'active' : 'ready',
+    showEndChatButton: !!chatGroupId,
+  }), [navigation, endChat, socket?.connected, chatGroupId]);
+
+  const listProps = useMemo(() => ({
+    messages: historyMessages, // Use historyMessages directly
+    flatListRef,
+    onScroll: handleScroll,
+    isLoadingMessages,
+    hasMoreMessages,
+    isTyping: socketHandlers.isTyping,
+    typingAgentName: socketHandlers.typingAgentName,
+    typingAgentImage: socketHandlers.typingAgentImage,
+    latestUserMessageIndex,
+  }), [
+    historyMessages, // Use historyMessages directly
+    handleScroll,
+    isLoadingMessages,
+    hasMoreMessages,
+    socketHandlers.isTyping,
+    socketHandlers.typingAgentName,
+    socketHandlers.typingAgentImage,
+    latestUserMessageIndex,
+  ]);
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
-            {/* Header */}
-            <MessageHeader
-              onBack={() => navigation.goBack()}
-              onEndChat={handleEndChatPress}
-              isConnected={socket?.connected}
-              chatStatus={chatGroupId ? 'active' : 'ready'}
-              departmentName={null} // Remove department name to keep it simple
-              showEndChatButton={!!chatGroupId}
-              onEndChat={handleEndChat}
-            />
+            <MessageHeader {...headerProps} />
+            <MessageList {...listProps} />
 
-            {/* Message List */}
-            <MessageList
-              messages={messages}
-              flatListRef={flatListRef}
-              onScroll={handleScroll}
-              isLoadingMessages={isLoadingMessages}
-              hasMoreMessages={hasMoreMessages}
-              isTyping={isTyping}
-              typingAgentName={typingAgentName}
-              typingAgentImage={typingAgentImage}
-              latestUserMessageIndex={latestUserMessageIndex}
-            />
-
-            {/* Message List - Always show if there are messages */}
-            {messages.length > 0 && (
-              <MessageList
-                messages={messages}
-                flatListRef={flatListRef}
-                onScroll={handleScroll}
-                isLoadingMessages={isLoadingMessages}
-                hasMoreMessages={hasMoreMessages}
-                isTyping={isTyping}
-                typingAgentName={typingAgentName}
-                typingAgentImage={typingAgentImage}
+            {!isLoadingChatGroup && !chatGroupId && (
+              <DepartmentSelector 
+                departments={departmentList}
+                onSelect={handleDepartmentSelect}
               />
             )}
 
-            {/* Department Selection - Show when no active chat (for new inquiry) */}
-            {!isLoadingChatGroup && !chatGroupId && (
-              <View style={styles.departmentSelectorContainer}>
-                <Text style={styles.newInquiryText}>
-                  Select department for your new inquiry:
-                </Text>
-                {departments.length > 0 ? (
-                  <View style={styles.departmentButtonsContainer}>
-                    {departments.map((department) => (
-                      <TouchableOpacity
-                        key={department.dept_id}
-                        style={styles.departmentButton}
-                        onPress={() => handleDepartmentSelect(department)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.departmentButtonText}>
-                          {department.dept_name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.loadingDepartments}>
-                    <ActivityIndicator size="small" color="#7C3AED" />
-                    <Text style={styles.loadingDepartmentsText}>
-                      Loading departments...
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
+            {isLoadingChatGroup && <LoadingIndicator />}
 
-            {/* Floating Chat History Button (only when in active chat with messages) */}
-            {/* Removed as requested by user */}
-
-            {/* Loading Indicator */}
-            {isLoadingChatGroup && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#6A1B9A" />
-                <Text style={styles.loadingText}>
-                  Loading your conversation...
-                </Text>
-              </View>
-            )}
-
-            {/* Input Bar - Only show when chat is active */}
             {chatGroupId && (
               <MessageInput
                 value={inputMessage}
                 onChangeText={setInputMessage}
                 onSend={handleSendMessage}
                 onOpenCannedMessages={() => setShowCannedMessages(true)}
-                disabled={!chatGroupId || sending}
+                disabled={!chatGroupId || sendMessage.sending}
                 socket={socket}
                 chatGroupId={chatGroupId}
                 clientId={clientId}
@@ -399,7 +254,6 @@ export default function MessagesScreen() {
               />
             )}
 
-            {/* Canned Messages Modal */}
             <CannedMessagesModal
               visible={showCannedMessages}
               onClose={() => setShowCannedMessages(false)}
@@ -409,21 +263,58 @@ export default function MessagesScreen() {
               }}
             />
 
-            {/* End Chat Modal */}
             <EndChatModal
-              visible={showEndChatModal}
-              onClose={hideEndChatModal}
-              onConfirmEndChat={handleEndChat}
-              chatDuration={messages.length > 0 ? formatChatStats(messages, clientId).duration : null}
-              messageCount={messages.length}
-              isLoading={isEndingChat}
+              visible={endChat.showEndChatModal}
+              onClose={endChat.hideEndChatModal}
+              onConfirmEndChat={endChat.handleEndChat}
+              chatDuration={chatDuration}
+              messageCount={historyMessages.length} // Use historyMessages directly
+              isLoading={endChat.isLoading}
             />
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
+});
+
+// Optimized sub-components
+const DepartmentSelector = React.memo(({ departments, onSelect }) => (
+  <View style={styles.departmentContainer}>
+    <Text style={styles.departmentTitle}>
+      Select department for your new inquiry:
+    </Text>
+    {departments.length > 0 ? (
+      <View style={styles.departmentButtons}>
+        {departments.map((dept) => (
+          <DepartmentButton key={dept.dept_id} department={dept} onPress={onSelect} />
+        ))}
+      </View>
+    ) : (
+      <View style={styles.loading}>
+        <ActivityIndicator size="small" color="#7C3AED" />
+        <Text style={styles.loadingText}>Loading departments...</Text>
+      </View>
+    )}
+  </View>
+));
+
+const DepartmentButton = React.memo(({ department, onPress }) => (
+  <TouchableOpacity
+    style={styles.departmentButton}
+    onPress={() => onPress(department)}
+    activeOpacity={0.7}
+  >
+    <Text style={styles.departmentButtonText}>{department.dept_name}</Text>
+  </TouchableOpacity>
+));
+
+const LoadingIndicator = React.memo(() => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#6A1B9A" />
+    <Text style={styles.loadingText}>Loading your conversation...</Text>
+  </View>
+));
 
 const styles = StyleSheet.create({
   container: {
@@ -443,13 +334,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  departmentSelectorContainer: {
+  departmentContainer: {
     backgroundColor: "#F9FAFB",
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
     paddingBottom: 20,
   },
-  newInquiryText: {
+  departmentTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#374151",
@@ -460,7 +351,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
-  departmentButtonsContainer: {
+  departmentButtons: {
     paddingHorizontal: 16,
     paddingTop: 16,
     flexDirection: 'row',
@@ -485,15 +376,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  loadingDepartments: {
+  loading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 20,
   },
-  loadingDepartmentsText: {
-    marginLeft: 8,
-    color: '#6B7280',
-    fontSize: 14,
-  },
 });
+
+export default MessagesScreen;

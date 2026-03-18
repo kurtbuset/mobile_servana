@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { messageAPI } from "../../../shared/api";
 import { addDateSeparators } from "../utils/messageHelpers";
 
@@ -15,10 +15,28 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [lastChatGroupId, setLastChatGroupId] = useState(null);
 
-  // Load messages with pagination
+  // Use refs to prevent callback recreation
+  const flatListRefRef = useRef(flatListRef);
+  const lastChatGroupIdRef = useRef(lastChatGroupId);
+  const isLoadingRef = useRef(isLoadingMessages);
+
+  // Update refs
+  useEffect(() => {
+    flatListRefRef.current = flatListRef;
+  }, [flatListRef]);
+
+  useEffect(() => {
+    lastChatGroupIdRef.current = lastChatGroupId;
+  }, [lastChatGroupId]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoadingMessages;
+  }, [isLoadingMessages]);
+
+  // Load messages with pagination - stable callback
   const loadMessages = useCallback(
     async (before = null, append = false) => {
-      if (!chatGroupId || isLoadingMessages) return;
+      if (!chatGroupId || isLoadingRef.current) return;
 
       try {
         setIsLoadingMessages(true);
@@ -67,7 +85,7 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
           });
         } else {
           // For continuous chat: append to existing messages instead of replacing
-          if (lastChatGroupId && lastChatGroupId !== chatGroupId) {
+          if (lastChatGroupIdRef.current && lastChatGroupIdRef.current !== chatGroupId) {
             // New chat group - append to existing messages
             setMessages((prev) => {
               const messagesOnly = prev.filter((m) => m.type !== "date");
@@ -84,7 +102,7 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
           }
           
           setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: false });
+            flatListRefRef.current?.current?.scrollToEnd({ animated: false });
           }, 100);
         }
 
@@ -99,21 +117,16 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
         setIsLoadingMessages(false);
       }
     },
-    [chatGroupId, isLoadingMessages, flatListRef, lastChatGroupId],
+    [chatGroupId], // Only depend on chatGroupId
   );
 
-  // Load more messages (pagination)
+  // Load more messages (pagination) - stable callback
   const loadMoreMessages = useCallback(async () => {
-    if (!hasMoreMessages || isLoadingMessages || !oldestMessageTimestamp)
+    if (!hasMoreMessages || isLoadingRef.current || !oldestMessageTimestamp)
       return;
 
     await loadMessages(oldestMessageTimestamp, true);
-  }, [
-    hasMoreMessages,
-    isLoadingMessages,
-    oldestMessageTimestamp,
-    loadMessages,
-  ]);
+  }, [hasMoreMessages, oldestMessageTimestamp, loadMessages]);
 
   // Load initial messages when chat group changes
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { addDateSeparators } from "../utils/messageHelpers";
 import {
   registerMessageEvents,
@@ -28,6 +28,7 @@ export const useMessageSocket = (
   const shouldAutoScrollRef = useRef(shouldAutoScroll);
   const flatListRefRef = useRef(flatListRef);
   const setMessagesRef = useRef(setMessages);
+  const clientIdRef = useRef(clientId);
 
   // Update refs when values change
   useEffect(() => {
@@ -42,8 +43,12 @@ export const useMessageSocket = (
     setMessagesRef.current = setMessages;
   }, [setMessages]);
 
-  // Function to add optimistic message when sending
-  const addOptimisticMessage = (text) => {
+  useEffect(() => {
+    clientIdRef.current = clientId;
+  }, [clientId]);
+
+  // Function to add optimistic message when sending - stable callback
+  const addOptimisticMessage = useCallback((text) => {
     const tempId = `temp-${Date.now()}`;
     const now = new Date();
     const optimisticMessage = {
@@ -74,17 +79,17 @@ export const useMessageSocket = (
     }
 
     return tempId;
-  };
+  }, []);
 
-  // Function to remove optimistic message on error
-  const removeOptimisticMessage = (tempId) => {
+  // Function to remove optimistic message on error - stable callback
+  const removeOptimisticMessage = useCallback((tempId) => {
     setMessagesRef.current((prev) => {
       const messagesOnly = prev.filter(
         (m) => m.type !== "date" && m.id !== tempId,
       );
       return addDateSeparators(messagesOnly);
     });
-  };
+  }, []);
 
   useEffect(() => {
     if (!chatGroupId || !socket) {
@@ -100,14 +105,14 @@ export const useMessageSocket = (
     joinChatGroup(socket, {
       groupId: chatGroupId,
       userType: "client",
-      userId: clientId,
+      userId: clientIdRef.current,
     });
 
     // Register message events
     const cleanupMessages = registerMessageEvents(socket, {
       onMessageReceived: (message) => {
         // Skip messages sent by current client (avoid duplicates)
-        if (message.client_id === clientId) {
+        if (message.client_id === clientIdRef.current) {
           return;
         }
 
@@ -239,7 +244,7 @@ export const useMessageSocket = (
         joinChatGroup(socket, {
           groupId: chatGroupId,
           userType: "client",
-          userId: clientId,
+          userId: clientIdRef.current,
         });
       },
     });
@@ -251,8 +256,7 @@ export const useMessageSocket = (
       cleanupTyping();
       cleanupConnection();
     };
-  }, [chatGroupId, clientId, socket]);
-  // Note: setMessages is now accessed via ref to prevent socket reconnection
+  }, [chatGroupId, socket]); // Removed clientId dependency - using ref instead
 
   return {
     isTyping,
