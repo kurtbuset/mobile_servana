@@ -61,6 +61,25 @@ export const markAsRead = async (messageId) => {
   return response.data;
 };
 
+/**
+ * End/Resolve chat group
+ */
+export const endChatGroup = async (chatGroupId, feedbackData = {}) => {
+  const response = await apiClient.patch(
+    MESSAGE_ENDPOINTS.END_CHAT_GROUP(chatGroupId),
+    feedbackData
+  );
+  return response.data;
+};
+
+/**
+ * Get resolved chat history for current client
+ */
+export const getResolvedChats = async () => {
+  const response = await apiClient.get(MESSAGE_ENDPOINTS.GET_RESOLVED_CHATS);
+  return response.data;
+};
+
 export default {
   getMessages,
   sendMessage,
@@ -68,4 +87,6 @@ export default {
   getLatestChatGroup,
   createChatGroup,
   markAsRead,
+  endChatGroup,
+  getResolvedChats,
 };

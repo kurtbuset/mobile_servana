@@ -5,6 +5,7 @@ import { addDateSeparators } from "../utils/messageHelpers";
 /**
  * Hook for managing message history with pagination
  * Token is automatically included in API requests via interceptor
+ * Modified to preserve messages for continuous chat experience
  */
 export const useMessageHistory = (chatGroupId, flatListRef) => {
   const [messages, setMessages] = useState([]);
@@ -12,6 +13,7 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [lastChatGroupId, setLastChatGroupId] = useState(null);
 
   // Load messages with pagination
   const loadMessages = useCallback(
@@ -61,11 +63,26 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
               (m) => !existingIds.has(m.id),
             );
             const combined = [...newUniqueMessages, ...messagesOnly];
-            return addDateSeparators(combined);
+            return combined; // Don't add date separators - they're causing issues
           });
         } else {
-          // Initial load
-          setMessages(addDateSeparators(mappedMessages));
+          // For continuous chat: append to existing messages instead of replacing
+          if (lastChatGroupId && lastChatGroupId !== chatGroupId) {
+            // New chat group - append to existing messages
+            setMessages((prev) => {
+              const messagesOnly = prev.filter((m) => m.type !== "date");
+              const existingIds = new Set(messagesOnly.map((m) => m.id));
+              const newUniqueMessages = mappedMessages.filter(
+                (m) => !existingIds.has(m.id),
+              );
+              const combined = [...messagesOnly, ...newUniqueMessages];
+              return combined; // Don't add date separators
+            });
+          } else {
+            // Initial load or same chat group
+            setMessages(mappedMessages); // Don't add date separators
+          }
+          
           setTimeout(() => {
             flatListRef.current?.scrollToEnd({ animated: false });
           }, 100);
@@ -82,7 +99,7 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
         setIsLoadingMessages(false);
       }
     },
-    [chatGroupId, isLoadingMessages, flatListRef],
+    [chatGroupId, isLoadingMessages, flatListRef, lastChatGroupId],
   );
 
   // Load more messages (pagination)
@@ -101,9 +118,11 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
   // Load initial messages when chat group changes
   useEffect(() => {
     if (chatGroupId) {
+      setLastChatGroupId(chatGroupId);
       loadMessages();
     }
-  }, [chatGroupId]);
+    // DON'T clear messages when chatGroupId becomes null - preserve for continuous chat
+  }, [chatGroupId, loadMessages]);
 
   return {
     messages,

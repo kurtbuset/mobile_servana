@@ -27,6 +27,8 @@ export const MESSAGE_ENDPOINTS = {
   GET_LATEST_CHAT_GROUP: '/messages/latest',
   CREATE_CHAT_GROUP: '/messages/group/create',
   MARK_AS_READ: (messageId) => `/messages/${messageId}/read`,
+  END_CHAT_GROUP: (groupId) => `/messages/group/${groupId}/end`,
+  GET_RESOLVED_CHATS: '/messages/resolved',
 };
 
 export const DEPARTMENT_ENDPOINTS = {

@@ -139,7 +139,7 @@ export const useMessageSocket = (
           }
 
           const updatedMessages = [...messagesOnly, newMessage];
-          return addDateSeparators(updatedMessages);
+          return updatedMessages; // Don't add date separators
         });
 
         // Scroll to bottom if user is at bottom
