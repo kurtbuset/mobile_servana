@@ -30,16 +30,29 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
         });
 
         // Map messages to UI format
-        const mappedMessages = data.messages.map((m, index) => ({
-          id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`,
-          sender: m.client_id ? "user" : "admin",
-          content: m.chat_body,
-          timestamp: m.chat_created_at,
-          displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        }));
+        const mappedMessages = data.messages.map((m, index) => {
+          // Calculate status based on database fields
+          let status = "sent"; // Default status
+          if (m.chat_read_at) {
+            status = "read";
+          } else if (m.chat_delivered_at) {
+            status = "delivered";
+          }
+
+          return {
+            id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`,
+            sender: m.client_id ? "user" : "admin",
+            content: m.chat_body,
+            timestamp: m.chat_created_at,
+            displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            status: status, // Include status from database
+            chatId: m.chat_id, // Include chatId for socket updates
+            isPending: false, // Messages from DB are not pending
+          };
+        });
 
         if (append) {
           // Prepend older messages
@@ -94,7 +107,6 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
     if (!hasMoreMessages || isLoadingMessages || !oldestMessageTimestamp)
       return;
 
-    console.log("Loading more messages...");
     await loadMessages(oldestMessageTimestamp, true);
   }, [
     hasMoreMessages,

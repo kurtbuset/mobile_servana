@@ -40,16 +40,6 @@ export const createSocketMiddleware = (socket) => {
       }
     }
 
-    // Handle leave chat group
-    if (action.type === 'socket/leaveChatGroup') {
-      if (socket && socket.connected) {
-        socket.emit('leaveChatGroup', action.payload);
-        console.log('👋 Left chat group via middleware');
-      } else {
-        console.warn('⚠️ Cannot leave chat group - socket not connected');
-      }
-    }
-
     return next(action);
   };
 };

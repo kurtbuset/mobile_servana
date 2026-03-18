@@ -17,7 +17,7 @@ const getSocketURL = () => {
   // For iOS simulator or real device in development
   if (__DEV__) {
     // Use your computer's local network IP
-    return "http://192.168.67.240:5000";
+    return "http://10.120.80.14:5000";
   }
 
   // Production mode

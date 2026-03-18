@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -101,6 +101,14 @@ export default function MessagesScreen() {
 
   // Socket Integration - use persistent messages
   const { isTyping, typingAgentName, typingAgentImage } = useMessageSocket(
+  // Socket Integration - Centralized socket event handling
+  const { 
+    isTyping, 
+    typingAgentName, 
+    typingAgentImage,
+    addOptimisticMessage,
+    removeOptimisticMessage 
+  } = useMessageSocket(
     socket,
     chatGroupId,
     clientId,
@@ -110,6 +118,7 @@ export default function MessagesScreen() {
   );
 
   // Send Message - use persistent messages
+  // Send Message - Simplified to only handle socket emission
   const { sendMessage: sendMessageViaSocket, sending } = useSendMessage(
     socket,
     chatGroupId,
@@ -221,6 +230,7 @@ export default function MessagesScreen() {
       setPersistentMessages(prev => [...prev, newInquiryMessage]);
       
       // Send initial message with department name
+      // Note: For department selection, we don't need optimistic UI since it's automatic
       await sendMessageViaSocket(department.dept_name, newChatGroupId);
     }
   };
@@ -230,7 +240,20 @@ export default function MessagesScreen() {
     const content = text ?? inputMessage.trim();
     if (!content || !chatGroupId) return;
 
-    await sendMessageViaSocket(content);
+    // Add optimistic message to UI
+    const tempId = addOptimisticMessage(content);
+    
+    try {
+      const result = await sendMessageViaSocket(content);
+      if (!result.success) {
+        // Remove optimistic message on failure
+        removeOptimisticMessage(tempId);
+      }
+    } catch (error) {
+      // Remove optimistic message on error
+      removeOptimisticMessage(tempId);
+    }
+    
     setInputMessage("");
     Keyboard.dismiss();
   };
@@ -255,6 +278,20 @@ export default function MessagesScreen() {
     showEndChatConfirmation();
   };
 
+  // Calculate latest user message index for status display
+  // Only recalculate when messages array length changes or last message changes
+  const latestUserMessageIndex = useMemo(() => {
+    if (messages.length === 0) return -1;
+    
+    // Find the last message sent by user (excluding date separators)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type !== "date" && messages[i].sender === "user") {
+        return i;
+      }
+    }
+    return -1;
+  }, [messages.length, messages[messages.length - 1]?.id]);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -272,6 +309,20 @@ export default function MessagesScreen() {
               chatStatus={chatGroupId ? 'active' : 'ready'}
               departmentName={null} // Remove department name to keep it simple
               showEndChatButton={!!chatGroupId}
+              onEndChat={handleEndChat}
+            />
+
+            {/* Message List */}
+            <MessageList
+              messages={messages}
+              flatListRef={flatListRef}
+              onScroll={handleScroll}
+              isLoadingMessages={isLoadingMessages}
+              hasMoreMessages={hasMoreMessages}
+              isTyping={isTyping}
+              typingAgentName={typingAgentName}
+              typingAgentImage={typingAgentImage}
+              latestUserMessageIndex={latestUserMessageIndex}
             />
 
             {/* Message List - Always show if there are messages */}

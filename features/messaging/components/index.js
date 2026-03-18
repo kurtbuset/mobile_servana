@@ -10,3 +10,4 @@ export { TypingIndicator } from './TypingIndicator';
 export { CannedMessagesModal } from './CannedMessagesModal';
 export { DepartmentSelector } from './DepartmentSelector';
 export { EndChatModal } from './EndChatModal';
+export { DepartmentSelector } from './DepartmentSelector';
