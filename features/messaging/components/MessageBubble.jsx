@@ -5,7 +5,7 @@ import Feather from "react-native-vector-icons/Feather";
 /**
  * Message Bubble Component
  */
-export const MessageBubble = ({ message, isUser }) => {
+const MessageBubbleComponent = ({ message, isUser, isLatestUserMessage = false, MessageStatus }) => {
   return (
     <View
       style={[
@@ -41,11 +41,22 @@ export const MessageBubble = ({ message, isUser }) => {
         >
           {message.content}
         </Text>
-        <Text
-          style={[styles.time, isUser ? styles.userTime : styles.adminTime]}
-        >
-          {message.displayTime}
-        </Text>
+        
+        <View style={styles.messageFooter}>
+          <Text
+            style={[styles.time, isUser ? styles.userTime : styles.adminTime]}
+          >
+            {message.displayTime}
+          </Text>
+
+          {/* Show status only on latest user message */}
+          {isUser && isLatestUserMessage && message.status && (
+            <MessageStatus
+              status={message.status}
+              style={styles.statusText}
+            />
+           )} 
+        </View>
       </View>
     </View>
   );
@@ -116,17 +127,39 @@ const styles = StyleSheet.create({
   adminContent: {
     color: "#1F2937",
   },
+  messageFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    gap: 6,
+  },
   time: {
     fontSize: 10,
-    marginTop: 4,
   },
   userTime: {
     color: "rgba(255, 255, 255, 0.7)",
-    textAlign: "right",
   },
   adminTime: {
     color: "#9CA3AF",
   },
+  statusText: {
+    fontSize: 9,
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+});
+
+// Memoize the component to prevent unnecessary re-renders
+export const MessageBubble = React.memo(MessageBubbleComponent, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if these specific props change
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.status === nextProps.message.status &&
+    prevProps.message.displayTime === nextProps.message.displayTime &&
+    prevProps.isUser === nextProps.isUser &&
+    prevProps.isLatestUserMessage === nextProps.isLatestUserMessage
+  );
 });
 
 export default MessageBubble;

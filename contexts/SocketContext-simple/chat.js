@@ -28,22 +28,15 @@ export const joinChatGroup = (socket, data) => {
   return true;
 };
 
-export const leaveChatGroup = (socket, data) => {
-  if (!socket || !socket.connected) {
-    console.warn("⚠️ Cannot leave chat group - socket not connected");
-    return false;
-  }
-  socket.emit("leaveChatGroup", {
-    chatGroupId: data.groupId,
-  });
-  console.log("👋 Left chat group:", data.groupId);
-  return true;
-};
-
 // ============= EVENT LISTENERS =============
 
 export const registerMessageEvents = (socket, callbacks = {}) => {
-  const { onMessageReceived, onMessageDelivered, onMessageError } = callbacks;
+  const { 
+    onMessageReceived, 
+    onMessageDelivered, 
+    onMessageError,
+    onMessageStatusUpdate
+  } = callbacks;
 
   const handleReceiveMessage = (message) => {
     console.log("📨 Received message:", message.chat_id);
@@ -60,13 +53,19 @@ export const registerMessageEvents = (socket, callbacks = {}) => {
     if (onMessageError) onMessageError(error);
   };
 
+  const handleMessageStatusUpdate = (data) => {
+    if (onMessageStatusUpdate) onMessageStatusUpdate(data);
+  };
+
   socket.on("receiveMessage", handleReceiveMessage);
   socket.on("messageDelivered", handleMessageDelivered);
   socket.on("messageError", handleMessageError);
+  socket.on("messageStatusUpdate", handleMessageStatusUpdate);
 
   return () => {
     socket.off("receiveMessage", handleReceiveMessage);
     socket.off("messageDelivered", handleMessageDelivered);
     socket.off("messageError", handleMessageError);
+    socket.off("messageStatusUpdate", handleMessageStatusUpdate);
   };
 };

@@ -71,7 +71,6 @@ export const useMessages = (chatGroupId, token) => {
       const exists = messagesOnly.some((m) => m.id === newMessage.id);
       
       if (exists) {
-        console.log('⚠️ Message already exists, skipping duplicate');
         return addDateSeparators(messagesOnly);
       }
 

@@ -5,13 +5,11 @@ import {
   registerTypingEvents,
   registerConnectionEvents,
   joinChatGroup,
-  leaveChatGroup,
 } from "../../../contexts/SocketContext-simple";
 
 /**
  * Hook for managing socket events for messaging
- * Note: Socket connection is managed by SocketProvider
- * This hook only sets up event listeners and manages typing state
+ * Centralized socket event handling including optimistic UI updates
  */
 export const useMessageSocket = (
   socket,
@@ -29,6 +27,7 @@ export const useMessageSocket = (
   // Use refs to avoid re-running effect on scroll changes
   const shouldAutoScrollRef = useRef(shouldAutoScroll);
   const flatListRefRef = useRef(flatListRef);
+  const setMessagesRef = useRef(setMessages);
 
   // Update refs when values change
   useEffect(() => {
@@ -40,8 +39,55 @@ export const useMessageSocket = (
   }, [flatListRef]);
 
   useEffect(() => {
+    setMessagesRef.current = setMessages;
+  }, [setMessages]);
+
+  // Function to add optimistic message when sending
+  const addOptimisticMessage = (text) => {
+    const tempId = `temp-${Date.now()}`;
+    const now = new Date();
+    const optimisticMessage = {
+      id: tempId,
+      sender: "user",
+      content: text,
+      timestamp: now.toISOString(),
+      displayTime: now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      status: "sent",
+      isPending: true,
+      chatId: null,
+    };
+
+    setMessagesRef.current((prev) => {
+      const messagesOnly = prev.filter((m) => m.type !== "date");
+      const updatedMessages = [...messagesOnly, optimisticMessage];
+      return addDateSeparators(updatedMessages);
+    });
+
+    // Scroll to bottom
+    if (shouldAutoScrollRef.current) {
+      setTimeout(() => {
+        flatListRefRef.current?.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+
+    return tempId;
+  };
+
+  // Function to remove optimistic message on error
+  const removeOptimisticMessage = (tempId) => {
+    setMessagesRef.current((prev) => {
+      const messagesOnly = prev.filter(
+        (m) => m.type !== "date" && m.id !== tempId,
+      );
+      return addDateSeparators(messagesOnly);
+    });
+  };
+
+  useEffect(() => {
     if (!chatGroupId || !socket) {
-      console.log("⏸️ Skipping socket setup - missing chatGroupId or socket");
       return;
     }
 
@@ -49,11 +95,6 @@ export const useMessageSocket = (
     if (!socket.connected) {
       console.log("⏸️ Socket not connected yet, waiting...");
     }
-
-    console.log(
-      "📱 Setting up message socket listeners for chat group:",
-      chatGroupId,
-    );
 
     // Join chat group using emitter
     joinChatGroup(socket, {
@@ -67,7 +108,6 @@ export const useMessageSocket = (
       onMessageReceived: (message) => {
         // Skip messages sent by current client (avoid duplicates)
         if (message.client_id === clientId) {
-          console.log("⏭️ Skipping own message to avoid duplicate");
           return;
         }
 
@@ -91,11 +131,10 @@ export const useMessageSocket = (
             message.sender_type === "agent" ? message.agent_name : null,
         };
 
-        setMessages((prev) => {
+        setMessagesRef.current((prev) => {
           const messagesOnly = prev.filter((m) => m.type !== "date");
           const exists = messagesOnly.some((m) => m.id === newMessage.id);
           if (exists) {
-            console.log("⚠️ Message already exists, skipping duplicate");
             return addDateSeparators(messagesOnly);
           }
 
@@ -111,9 +150,49 @@ export const useMessageSocket = (
         }
       },
       onMessageDelivered: (data) => {
-        // Handle message delivery confirmation if needed'
-        console.log("data: ", data);
-        console.log("✅ Message delivered:", data.chat_id);
+        // Update optimistic message with real chat ID
+        setMessagesRef.current((prevMessages) => {
+          return prevMessages.map((message) => {
+            // Find temp message that matches this delivery
+            if (message.type !== "date" && 
+                message.isPending && 
+                message.id.startsWith("temp-")) {
+              return {
+                ...message,
+                id: `msg-${data.chat_id}`,
+                chatId: data.chat_id,
+                isPending: false,
+                // Keep current status - let messageStatusUpdate handle status changes
+              };
+            }
+            return message;
+          });
+        });
+      },
+      onMessageStatusUpdate: (data) => {
+        // Update message status based on chat_id (backend sends chatId)
+        const chatId = data.chat_id || data.chatId;
+        
+        setMessagesRef.current((prevMessages) => {
+          return prevMessages.map((message) => {
+            if (message.type === "date") return message;
+            
+            // Try multiple matching strategies
+            const matchesById = message.id === `msg-${chatId}`;
+            const matchesByChatId = message.chatId === chatId;
+            const matchesByTempId = message.isPending && message.id.startsWith("temp-");
+            
+            if (matchesById || matchesByChatId || matchesByTempId) {
+              return {
+                ...message,
+                status: data.status,
+                chatId: chatId, // Ensure chatId is set
+                isPending: false, // Mark as no longer pending
+              };
+            }
+            return message;
+          });
+        });
       },
       onMessageError: (error) => {
         // Handle message error if needed
@@ -156,7 +235,6 @@ export const useMessageSocket = (
     // Register connection events (for reconnection handling)
     const cleanupConnection = registerConnectionEvents(socket, {
       onConnect: () => {
-        console.log("✅ Socket reconnected, rejoining chat group");
         // Re-join chat group on reconnection
         joinChatGroup(socket, {
           groupId: chatGroupId,
@@ -168,30 +246,20 @@ export const useMessageSocket = (
 
     // Cleanup
     return () => {
-      console.log("🧹 Cleaning up message socket listeners");
-
       // Cleanup all event listeners
       cleanupMessages();
       cleanupTyping();
       cleanupConnection();
-
-      // Leave chat group on cleanup
-      leaveChatGroup(socket, {
-        groupId: chatGroupId,
-        userType: "client",
-        userId: clientId,
-      });
-
-      console.log("✅ Message socket listeners cleaned up");
     };
-  }, [chatGroupId, clientId, socket, setMessages]);
-  // Note: shouldAutoScroll and flatListRef are intentionally NOT in dependencies
-  // to prevent socket reconnection on scroll
+  }, [chatGroupId, clientId, socket]);
+  // Note: setMessages is now accessed via ref to prevent socket reconnection
 
   return {
     isTyping,
     typingAgentName,
     typingAgentImage,
+    addOptimisticMessage,
+    removeOptimisticMessage,
   };
 };
 

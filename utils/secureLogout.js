@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { clearProfile } from '../store/slices/profile';
 import SecureStorage from './secureStorage';
-import { clearSocket } from '../socket';
+import { clearSocket } from '../contexts/SocketContext-simple';
 
 /**
  * Complete session cleanup - clears all user data except profile picture
