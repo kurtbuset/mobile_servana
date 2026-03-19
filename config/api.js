@@ -7,15 +7,15 @@ const getAPIURL = () => {
   }
 
   // For Android emulator, use special IP that maps to host machine
-  if (Platform.OS === "android" && __DEV__) {
-    // 10.0.2.2 is the special IP for Android emulator to access host machine
-    return "http://10.0.2.2:5000";
-  }
+  // if (Platform.OS === "android" && __DEV__) {
+  //   // 10.0.2.2 is the special IP for Android emulator to access host machine
+  //   return "http://10.0.2.2:5000";
+  // }
 
   // For iOS simulator or real device in development
   if (__DEV__) {
     // Use your computer's local network IP
-    return "http://10.120.80.14:5000";
+    return "http://192.168.137.128:5000";
   }
 
   // Production mode

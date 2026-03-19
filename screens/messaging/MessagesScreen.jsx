@@ -239,7 +239,7 @@ const MessagesScreen = React.memo(() => {
             )}
 
             {isLoadingChatGroup && <LoadingIndicator />}
-
+            
             {chatGroupId && (
               <MessageInput
                 value={inputMessage}

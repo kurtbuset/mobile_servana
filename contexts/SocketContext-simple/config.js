@@ -11,13 +11,13 @@ const getSocketURL = () => {
   }
 
   // For Android emulator, use special IP that maps to host machine
-  if (Platform.OS === "android" && __DEV__) {
-    return "http://10.0.2.2:5000";
-  }
+  // if (Platform.OS === "android" && __DEV__) {
+  //   return "http://10.0.2.2:5000";
+  // }
 
   // For iOS simulator or real device in development
   if (__DEV__) {
-    return "http://192.168.67.240:5000"; // Your computer's Wi-Fi IP
+    return "http://192.168.137.128:5000"; // Your computer's Wi-Fi IP
   }
 
   return "https://your-production-backend.com";

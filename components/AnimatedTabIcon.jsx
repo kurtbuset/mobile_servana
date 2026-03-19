@@ -56,7 +56,7 @@ const AnimatedTabIcon = ({ name, color, focused }) => {
       >
         <Feather
           name={name}
-          size={focused ? 26 : 24}
+          size={focused ? 22 : 20}
           color={color}
           strokeWidth={focused ? 2.5 : 2}
         />
@@ -69,14 +69,14 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 56,
-    height: 56,
+    width: 44,
+    height: 44,
   },
   background: {
     position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#F0E6FF',
   },
 });

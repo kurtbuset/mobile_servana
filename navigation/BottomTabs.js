@@ -1,5 +1,7 @@
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Keyboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
 import AnimatedTabIcon from '../components/AnimatedTabIcon';
 import { ROUTES, TAB_CONFIG } from '../config/navigation';
 
@@ -11,8 +13,25 @@ import MessagesScreen from '../screens/messaging/MessagesScreen'; // Refactored 
 const Tab = createMaterialTopTabNavigator();
 
 const BottomTabs = () => {
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidHideListener?.remove();
+      keyboardDidShowListener?.remove();
+    };
+  }, []);
+  
   return (
-    <View style={styles.container}>
+    <View style={[styles.container]}>
       <Tab.Navigator
         tabBarPosition={TAB_CONFIG.POSITION}
         screenOptions={({ route }) => ({
@@ -23,7 +42,7 @@ const BottomTabs = () => {
           tabBarPressColor: 'transparent',
           tabBarIndicatorStyle: {
             backgroundColor: TAB_CONFIG.INDICATOR_COLOR,
-            height: TAB_CONFIG.INDICATOR_HEIGHT,
+            height: 0,
             borderRadius: 2,
             marginBottom: TAB_CONFIG.PADDING_BOTTOM,
           },
@@ -35,12 +54,14 @@ const BottomTabs = () => {
             shadowOpacity: 0.08,
             shadowRadius: 12,
             borderTopWidth: 0,
-            height: TAB_CONFIG.HEIGHT,
-            paddingBottom: TAB_CONFIG.PADDING_BOTTOM,
-            paddingTop: 8,
+            height: 60 + (insets.bottom || 10),
+            paddingBottom: TAB_CONFIG.PADDING_BOTTOM + (insets.bottom || 10),
+            paddingTop: 4,
+            display: isKeyboardVisible ? 'none' : 'flex',
           },
           tabBarItemStyle: {
-            paddingVertical: 8,
+            paddingVertical: 6,
+            height: 50,
           },
           tabBarIcon: ({ color, focused }) => {
             let iconName;
@@ -77,7 +98,7 @@ const BottomTabs = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#0074e7ff',
   },
 });
 
