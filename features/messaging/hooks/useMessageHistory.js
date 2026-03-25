@@ -1,3 +1,5 @@
+import logger from "../../../utils/logger";
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { messageAPI } from "../../../shared/api";
 import { addDateSeparators } from "../utils/messageHelpers";
@@ -43,12 +45,34 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
 
         // Use centralized API
         const data = await messageAPI.getMessages(chatGroupId, {
-          limit: 10,
+          limit: 30,
           before,
         });
 
+        // Handle both old and new response formats
+        const messagesData = data.messages || data;
+        const paginationMeta = data.pagination;
+
         // Map messages to UI format
-        const mappedMessages = data.messages.map((m, index) => {
+        const mappedMessages = messagesData.map((m, index) => {
+          // Handle transfer messages
+          if (m.message_type === 'transfer') {
+            return {
+              id: m.chat_id,
+              sender: 'system',
+              sender_type: 'system',
+              message_type: 'transfer',
+              content: m.chat_body,
+              timestamp: m.chat_created_at,
+              displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              transfer_data: m.transfer_data,
+              isPending: false,
+            };
+          }
+
           // Calculate status based on database fields
           let status = "sent"; // Default status
           if (m.chat_read_at) {
@@ -57,18 +81,24 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
             status = "delivered";
           }
 
+          // Determine sender for UI (user = client, admin = agent)
+          const sender = m.client_id ? "user" : "admin";
+
           return {
             id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`,
-            sender: m.client_id ? "user" : "admin",
+            sender: sender,
+            sender_type: m.sender_type || (m.client_id ? 'client' : 'agent'),
+            sender_name: m.sender_name || null,
+            sender_image: m.sender_image || null,
             content: m.chat_body,
             timestamp: m.chat_created_at,
             displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             }),
-            status: status, // Include status from database
-            chatId: m.chat_id, // Include chatId for socket updates
-            isPending: false, // Messages from DB are not pending
+            status: status,
+            chatId: m.chat_id,
+            isPending: false,
           };
         });
 
@@ -81,7 +111,7 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
               (m) => !existingIds.has(m.id),
             );
             const combined = [...newUniqueMessages, ...messagesOnly];
-            return combined; // Don't add date separators - they're causing issues
+            return addDateSeparators(combined);
           });
         } else {
           // For continuous chat: append to existing messages instead of replacing
@@ -94,30 +124,34 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
                 (m) => !existingIds.has(m.id),
               );
               const combined = [...messagesOnly, ...newUniqueMessages];
-              return combined; // Don't add date separators
+              return addDateSeparators(combined);
             });
           } else {
             // Initial load or same chat group
-            setMessages(mappedMessages); // Don't add date separators
+            setMessages(addDateSeparators(mappedMessages));
           }
-          
-          setTimeout(() => {
-            flatListRefRef.current?.current?.scrollToEnd({ animated: false });
-          }, 100);
         }
 
-        // Update pagination state
-        setHasMoreMessages(data.hasMore);
-        if (mappedMessages.length > 0) {
-          setOldestMessageTimestamp(mappedMessages[0].timestamp);
+        // Update pagination state - use metadata if available
+        if (paginationMeta) {
+          setHasMoreMessages(paginationMeta.hasMore);
+          if (paginationMeta.oldestTimestamp) {
+            setOldestMessageTimestamp(paginationMeta.oldestTimestamp);
+          }
+        } else {
+          // Fallback to length-based check
+          setHasMoreMessages(messagesData.length === 30);
+          if (mappedMessages.length > 0) {
+            setOldestMessageTimestamp(mappedMessages[0].timestamp);
+          }
         }
       } catch (error) {
-        console.error("Error loading messages:", error);
+        logger.error("Error loading messages:", error);
       } finally {
         setIsLoadingMessages(false);
       }
     },
-    [chatGroupId], // Only depend on chatGroupId
+    [chatGroupId],
   );
 
   // Load more messages (pagination) - stable callback

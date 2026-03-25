@@ -1,3 +1,5 @@
+import logger from '../../../utils/logger';
+
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { endChatGroup } from '../../../shared/api/message.api';
@@ -28,7 +30,7 @@ export const useEndChat = (chatGroupId, onChatEnded) => {
         endedAt: new Date().toISOString(),
       });
 
-      console.log('✅ Chat ended successfully:', response);
+      logger.info('✅ Chat ended successfully:', response);
 
       // Call the callback to handle navigation/cleanup
       if (onChatEnded) {
@@ -37,7 +39,7 @@ export const useEndChat = (chatGroupId, onChatEnded) => {
 
       return response;
     } catch (error) {
-      console.error('❌ Error ending chat:', error);
+      logger.error('❌ Error ending chat:', error);
       
       // Show user-friendly error message
       const errorMessage = error.response?.data?.error || 'Failed to end chat. Please try again.';

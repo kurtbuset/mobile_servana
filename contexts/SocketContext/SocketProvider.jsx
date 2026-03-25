@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 /**
  * Socket Context Provider - Simplified
  * Manages socket connection and provides socket instance to children
@@ -6,7 +8,6 @@ import React, { createContext, useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { selectClient } from "../../store/slices/profile";
 import { createSocket, clearSocket } from "./config";
-import { setupConnectionEvents } from "./connection";
 
 export const SocketContext = createContext(null);
 
@@ -19,11 +20,11 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     // Only initialize socket if user is authenticated
     if (!isAuthenticated) {
-      console.log("⏸️ User not authenticated, skipping socket initialization");
+      logger.info("⏸️ User not authenticated, skipping socket initialization");
 
       // Disconnect existing socket if user logged out
       if (socket) {
-        console.log("🔌 Disconnecting socket due to logout");
+        logger.info("🔌 Disconnecting socket due to logout");
         clearSocket();
         setSocket(null);
         setIsConnected(false);
@@ -34,27 +35,24 @@ export const SocketProvider = ({ children }) => {
 
     const initializeSocket = async () => {
       try {
-        console.log("📱 User authenticated, initializing socket...");
+        logger.info("📱 User authenticated, initializing socket...");
         const socketInstance = await createSocket();
         setSocket(socketInstance);
 
-        // Setup connection events
-        setupConnectionEvents(socketInstance);
-
-        // Custom handlers for connection state
+        // Connection state handlers
         const handleConnect = () => {
-          console.log("✅ Socket connected:", socketInstance.id);
+          logger.info("✅ Socket connected:", socketInstance.id);
           setIsConnected(true);
         };
 
         const handleDisconnect = () => {
-          console.log("❌ Socket disconnected");
+          logger.info("❌ Socket disconnected");
           setIsConnected(false);
         };
 
         const handleConnectError = (error) => {
-          console.error("❌ Socket connection error:", error.message);
-          console.error("❌ Error details:", {
+          logger.error("❌ Socket connection error:", error.message);
+          logger.error("❌ Error details:", {
             type: error.type,
             description: error.description,
             context: error.context,
@@ -62,8 +60,8 @@ export const SocketProvider = ({ children }) => {
 
           // Provide user-friendly error messages
           if (error.message.includes("websocket error")) {
-            console.error("💡 Tip: Check if backend is running and accessible");
-            console.error("💡 Tip: Verify your IP address in config/socket.js");
+            logger.error("💡 Tip: Check if backend is running and accessible");
+            logger.error("💡 Tip: Verify your IP address in config/socket.js");
           }
 
           setIsConnected(false);
@@ -74,17 +72,17 @@ export const SocketProvider = ({ children }) => {
         socketInstance.on("connect_error", handleConnectError);
 
         socketInstance.connect();
-        console.log("📱 Connecting socket...");
+        logger.info("📱 Connecting socket...");
 
         return () => {
           socketInstance.off("connect", handleConnect);
           socketInstance.off("disconnect", handleDisconnect);
           socketInstance.off("connect_error", handleConnectError);
           socketInstance.disconnect();
-          console.log("🔌 Socket cleanup");
+          logger.info("🔌 Socket cleanup");
         };
       } catch (error) {
-        console.error("❌ Failed to initialize socket:", error);
+        logger.error("❌ Failed to initialize socket:", error);
       }
     };
 
@@ -93,7 +91,7 @@ export const SocketProvider = ({ children }) => {
 
   const reconnect = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log("⏸️ Cannot reconnect socket - user not authenticated");
+      logger.info("⏸️ Cannot reconnect socket - user not authenticated");
       return;
     }
 
@@ -101,7 +99,7 @@ export const SocketProvider = ({ children }) => {
       socket.disconnect();
     }
 
-    console.log("🔄 Reconnecting socket...");
+    logger.info("🔄 Reconnecting socket...");
     const newSocket = await createSocket();
     setSocket(newSocket);
     newSocket.connect();

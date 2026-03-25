@@ -1,7 +1,10 @@
+import logger from '../../utils/logger';
+
 import axios from "axios";
 import SecureStorage from "../../utils/secureStorage";
 
-import API_URL from "../../config/api";
+import { API_CONFIG } from "../../config/environment";
+const API_URL = API_CONFIG.BASE_URL;
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -21,7 +24,7 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error("Error getting token:", error);
+      logger.error("Error getting token:", error);
     }
     return config;
   },
@@ -30,9 +33,14 @@ apiClient.interceptors.request.use(
   },
 );
 
-// Response interceptor - Handle errors globally
+// Response interceptor - Unwrap { data: ... } envelope and handle errors globally
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data && response.data.data !== undefined) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
@@ -46,7 +54,7 @@ apiClient.interceptors.response.use(
 
     // Handle network errors
     if (!error.response) {
-      console.error("Network error:", error.message);
+      logger.error("Network error:", error.message);
       return Promise.reject({
         message: "Network error. Please check your connection.",
         originalError: error,
@@ -58,4 +66,3 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
-export { API_URL }

@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 import apiClient from "./client";
 import { OTP_ENDPOINTS, AUTH_ENDPOINTS } from "./endpoints";
 
@@ -70,8 +72,8 @@ export const validateToken = async () => {
  * @returns {Promise<{message: string, profile: object}>}
  */
 export const completeProfile = async (firstname, lastname) => {
-  console.log('firstname: ', firstname)
-  console.log('lastname: ', lastname)
+  logger.info('firstname: ', firstname)
+  logger.info('lastname: ', lastname)
   const response = await apiClient.post(AUTH_ENDPOINTS.COMPLETE_PROFILE, {
     firstname,
     lastname

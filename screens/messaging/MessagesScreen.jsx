@@ -4,7 +4,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  TouchableWithoutFeedback,
   TouchableOpacity,
   Keyboard,
   ActivityIndicator,
@@ -200,7 +199,7 @@ const MessagesScreen = React.memo(() => {
   }), [navigation, endChat, socket?.connected, chatGroupId]);
 
   const listProps = useMemo(() => ({
-    messages: historyMessages, // Use historyMessages directly
+    messages: historyMessages,
     flatListRef,
     onScroll: handleScroll,
     isLoadingMessages,
@@ -209,8 +208,9 @@ const MessagesScreen = React.memo(() => {
     typingAgentName: socketHandlers.typingAgentName,
     typingAgentImage: socketHandlers.typingAgentImage,
     latestUserMessageIndex,
+    shouldAutoScroll: shouldAutoScroll,
   }), [
-    historyMessages, // Use historyMessages directly
+    historyMessages,
     handleScroll,
     isLoadingMessages,
     hasMoreMessages,
@@ -218,6 +218,7 @@ const MessagesScreen = React.memo(() => {
     socketHandlers.typingAgentName,
     socketHandlers.typingAgentImage,
     latestUserMessageIndex,
+    shouldAutoScroll,
   ]);
 
   return (
@@ -226,7 +227,6 @@ const MessagesScreen = React.memo(() => {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
             <MessageHeader {...headerProps} />
             <MessageList {...listProps} />
@@ -272,7 +272,6 @@ const MessagesScreen = React.memo(() => {
               isLoading={endChat.isLoading}
             />
           </View>
-        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

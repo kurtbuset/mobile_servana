@@ -1,5 +1,7 @@
+import logger from '../../../utils/logger';
+
 import { useState } from "react";
-import { sendMessage as sendMessageEmitter } from "../../../contexts/SocketContext-simple";
+import { sendMessage as sendMessageEmitter } from "../../../contexts/SocketContext";
 
 /**
  * Hook for sending messages via socket using emitter functions
@@ -23,13 +25,13 @@ export const useSendMessage = (socket, chatGroupId, clientId) => {
       });
 
       if (!success) {
-        console.error("❌ Failed to send message - socket not connected");
+        logger.error("❌ Failed to send message - socket not connected");
         return { success: false };
       }
 
       return { success: true };
     } catch (error) {
-      console.error("Error sending message:", error);
+      logger.error("Error sending message:", error);
       return { success: false };
     } finally {
       setSending(false);

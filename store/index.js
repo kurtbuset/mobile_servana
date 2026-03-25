@@ -15,13 +15,7 @@ export const store = configureStore({
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        // Ignore socket instances in actions
-        ignoredActions: ['socket/connect', 'socket/disconnect'],
-        ignoredPaths: ['socket'],
-      },
-    }).concat(errorMiddleware, __DEV__ ? loggingMiddleware : []),
+    getDefaultMiddleware().concat(errorMiddleware, __DEV__ ? loggingMiddleware : []),
 });
 
 export default store;

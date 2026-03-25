@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 import {
   FlatList,
   View,
@@ -9,21 +9,16 @@ import {
 import { MessageBubble } from "./MessageBubble";
 import { DateSeparator } from "./DateSeparator";
 import { TypingIndicator } from "./TypingIndicator";
-import { useTheme } from "../../../contexts/ThemeContext";
 import { getStatusDisplayText, getStatusColor } from "../utils/messageStatusHelpers";
 
 /**
  * MessageStatus - Displays message delivery and read status as text
- * Similar to WhatsApp/Messenger status indicators
- * Mobile version of the web MessageStatus component
  */
 function MessageStatus({ status, style = {} }) {
-  const { isDark } = useTheme();
-
   const statusText = getStatusDisplayText(status);
-  const statusColor = getStatusColor(status, isDark);
+  const statusColor = getStatusColor(status, true); // app uses dark theme
   return (
-    <Text 
+    <Text
       style={[
         {
           fontSize: 10,
@@ -53,15 +48,24 @@ export const MessageList = ({
   typingAgentName,
   typingAgentImage,
   latestUserMessageIndex = -1,
+  shouldAutoScroll = true,
 }) => {
+  const prevContentHeightRef = useRef(0);
+
   // Auto-scroll when typing indicator appears
   useEffect(() => {
     if (isTyping && flatListRef?.current) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      flatListRef.current?.scrollToEnd({ animated: true });
     }
   }, [isTyping, flatListRef]);
+
+  // Auto-scroll when content size grows
+  const handleContentSizeChange = useCallback((width, height) => {
+    if (height > prevContentHeightRef.current && shouldAutoScroll) {
+      flatListRef?.current?.scrollToEnd({ animated: true });
+    }
+    prevContentHeightRef.current = height;
+  }, [shouldAutoScroll, flatListRef]);
 
   const renderItem = useCallback(({ item, index }) => {
     if (item.type === "date") {
@@ -70,16 +74,16 @@ export const MessageList = ({
 
     const isLatestUserMessage = index === latestUserMessageIndex;
     return (
-      <MessageBubble 
-        message={item} 
-        isUser={item.sender === "user"} 
+      <MessageBubble
+        message={item}
+        isUser={item.sender === "user"}
         isLatestUserMessage={isLatestUserMessage}
         MessageStatus={MessageStatus}
       />
     );
   }, [latestUserMessageIndex]);
 
-  const renderFooter = () => {
+  const renderFooter = useCallback(() => {
     if (isTyping) {
       return (
         <TypingIndicator
@@ -89,9 +93,9 @@ export const MessageList = ({
       );
     }
     return null;
-  };
+  }, [isTyping, typingAgentImage, typingAgentName]);
 
-  const renderHeader = () => {
+  const renderHeader = useCallback(() => {
     if (isLoadingMessages && hasMoreMessages) {
       return (
         <View style={styles.loadingHeader}>
@@ -101,7 +105,7 @@ export const MessageList = ({
       );
     }
     return null;
-  };
+  }, [isLoadingMessages, hasMoreMessages]);
 
   return (
     <FlatList
@@ -111,13 +115,17 @@ export const MessageList = ({
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.messageList}
       onScroll={onScroll}
+      onContentSizeChange={handleContentSizeChange}
       scrollEventThrottle={16}
       ListHeaderComponent={renderHeader}
       ListFooterComponent={renderFooter}
       style={styles.flatList}
       removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
+      maxToRenderPerBatch={15}
       windowSize={10}
+      initialNumToRender={20}
+      updateCellsBatchingPeriod={50}
+      keyboardDismissMode="on-drag"
     />
   );
 };

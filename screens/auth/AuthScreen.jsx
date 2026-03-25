@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -72,7 +74,7 @@ export default function AuthScreen() {
    * Handle auto-detected OTP
    */
   const handleOTPDetected = (detectedOTP) => {
-    console.log('🎯 Auto-detected OTP:', detectedOTP);
+    logger.info('🎯 Auto-detected OTP:', detectedOTP);
     setOtp(detectedOTP);
     
     // Show success feedback
@@ -149,7 +151,7 @@ export default function AuthScreen() {
       // Move to OTP step
       setStep("otp");
     } catch (err) {
-      console.error("Request OTP error:", err);
+      logger.error("Request OTP error:", err);
       setError(
         err.response?.data?.error || "Failed to send OTP. Please try again.",
       );
@@ -191,7 +193,7 @@ export default function AuthScreen() {
       // Note: Navigation happens after the stack switches, so we don't call navigate here
       // The profile setup check should happen in the Main App (e.g., HomeScreen useEffect)
     } catch (err) {
-      console.error("Verify OTP error:", err);
+      logger.error("Verify OTP error:", err);
       const errorMessage =
         err.response?.data?.error || "Invalid OTP. Please try again.";
       const attemptsRemaining = err.response?.data?.attempts_remaining;
@@ -225,7 +227,7 @@ export default function AuthScreen() {
 
       Alert.alert("Success", "OTP has been resent to your phone number");
     } catch (err) {
-      console.error("Resend OTP error:", err);
+      logger.error("Resend OTP error:", err);
       setError(
         err.response?.data?.error || "Failed to resend OTP. Please try again.",
       );

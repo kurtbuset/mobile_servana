@@ -4,14 +4,14 @@ import Feather from "react-native-vector-icons/Feather";
 import {
   emitTyping,
   emitStopTyping,
-} from "../../../contexts/SocketContext-simple";
+} from "../../../contexts/SocketContext";
 
 /**
  * Message Input Component
  * Input bar with menu button for canned messages and send button
  * Emits typing indicators to socket using emitter functions
  */
-export const MessageInput = ({
+export const MessageInput = React.memo(({
   value,
   onChangeText,
   onSend,
@@ -146,7 +146,7 @@ export const MessageInput = ({
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   inputBar: {

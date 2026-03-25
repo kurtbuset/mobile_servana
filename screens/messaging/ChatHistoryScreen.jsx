@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import logger from '../../utils/logger';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,7 +42,7 @@ export default function ChatHistoryScreen() {
       
       setChatHistory(formattedHistory);
     } catch (error) {
-      console.error('Error loading chat history:', error);
+      logger.error('Error loading chat history:', error);
       setChatHistory([]); // Set empty array on error
     } finally {
       setIsLoading(false);
@@ -98,7 +100,7 @@ export default function ChatHistoryScreen() {
     );
   };
 
-  const renderChatItem = ({ item }) => (
+  const renderChatItem = useCallback(({ item }) => (
     <TouchableOpacity 
       style={styles.chatItem}
       onPress={() => {
@@ -154,9 +156,9 @@ export default function ChatHistoryScreen() {
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
-  );
+  ), [navigation]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
         <Feather name="message-circle" size={48} color="#D1D5DB" />
@@ -187,7 +189,7 @@ export default function ChatHistoryScreen() {
         <Text style={styles.startChatButtonText}>Start New Chat</Text>
       </TouchableOpacity>
     </View>
-  );
+  ), [navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -227,6 +229,10 @@ export default function ChatHistoryScreen() {
           }
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
         />
       )}
     </SafeAreaView>

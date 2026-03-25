@@ -5,7 +5,7 @@ import { formatDateLabel } from "../utils/messageHelpers";
 /**
  * Date Separator Component
  */
-export const DateSeparator = ({ date }) => {
+export const DateSeparator = React.memo(({ date }) => {
   return (
     <View style={styles.container}>
       <View style={styles.line} />
@@ -13,7 +13,7 @@ export const DateSeparator = ({ date }) => {
       <View style={styles.line} />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

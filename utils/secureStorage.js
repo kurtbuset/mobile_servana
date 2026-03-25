@@ -1,3 +1,5 @@
+import logger from './logger';
+
 import * as SecureStore from "expo-secure-store";
 
 /**
@@ -20,7 +22,7 @@ class SecureStorage {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      console.error(`SecureStorage setItem error for key ${key}:`, error);
+      logger.error(`SecureStorage setItem error for key ${key}:`, error);
       throw error;
     }
   }
@@ -34,7 +36,7 @@ class SecureStorage {
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      console.error(`SecureStorage getItem error for key ${key}:`, error);
+      logger.error(`SecureStorage getItem error for key ${key}:`, error);
       return null;
     }
   }
@@ -47,7 +49,7 @@ class SecureStorage {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      console.error(`SecureStorage removeItem error for key ${key}:`, error);
+      logger.error(`SecureStorage removeItem error for key ${key}:`, error);
       throw error;
     }
   }
@@ -61,7 +63,7 @@ class SecureStorage {
       const knownKeys = ["token", "profile", "client_data"];
       await Promise.all(knownKeys.map((key) => this.removeItem(key)));
     } catch (error) {
-      console.error("SecureStorage clear error:", error);
+      logger.error("SecureStorage clear error:", error);
       throw error;
     }
   }
@@ -80,14 +82,7 @@ class SecureStorage {
   }
 
   /**
-   * Retrieve JWT authentication token
-   * Token may be valid for up to 30 days from issuance
-   * Use TokenValidation.isTokenValid() to check expiration
-   *
-   * Note: This method retrieves the raw token without validation.
-   * For validated token retrieval, use TokenValidation.isTokenValid() first.
-   *
-   * @returns {Promise<string|null>} - JWT token or null if not found/error
+   * Retrieve JWT authentication token. Returns null if missing or empty.
    */
   static async getToken() {
     try {
@@ -100,7 +95,7 @@ class SecureStorage {
 
       return token;
     } catch (error) {
-      console.error("SecureStorage getToken error:", error);
+      logger.error("SecureStorage getToken error:", error);
       return null;
     }
   }
@@ -113,40 +108,6 @@ class SecureStorage {
    */
   static async removeToken() {
     return this.removeItem("token");
-  }
-
-  /**
-   * Get validated token (retrieves and checks expiration)
-   * This is a convenience method that combines token retrieval with validation
-   * Returns null if token doesn't exist, is expired, or is invalid
-   *
-   * @returns {Promise<string|null>} - Valid JWT token or null
-   */
-  static async getValidatedToken() {
-    try {
-      const token = await this.getToken();
-
-      if (!token) {
-        return null;
-      }
-
-      // Import TokenValidation dynamically to avoid circular dependency
-      const TokenValidation = require("./tokenValidation").default;
-
-      // Check if token is expired
-      const isExpired = TokenValidation.isTokenExpired(token);
-
-      if (isExpired) {
-        console.log("SecureStorage: Token is expired, removing...");
-        await this.removeToken();
-        return null;
-      }
-
-      return token;
-    } catch (error) {
-      console.error("SecureStorage getValidatedToken error:", error);
-      return null;
-    }
   }
 
   // Profile-specific methods

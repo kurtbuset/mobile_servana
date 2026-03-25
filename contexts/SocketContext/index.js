@@ -7,8 +7,6 @@
 export { SocketProvider, SocketContext } from "./SocketProvider";
 export { useSocket } from "./useSocket";
 
-// Socket functions
-export * from "./chat";
-export * from "./typing";
-export * from "./connection";
+// Socket emitters and event listeners
+export * from "./emitters";
 export { createSocket, clearSocket } from "./config";

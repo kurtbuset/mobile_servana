@@ -3,12 +3,19 @@ import { MESSAGE_ENDPOINTS } from './endpoints';
 
 /**
  * Get messages for a chat group with pagination
+ * @param {string} chatGroupId - Chat group ID
+ * @param {Object} options - Pagination options
+ * @param {number} options.limit - Number of messages (default: 30, max: 100)
+ * @param {string} options.before - Timestamp for cursor-based pagination
+ * @returns {Promise<Object>} Messages array and pagination metadata
  */
 export const getMessages = async (chatGroupId, options = {}) => {
-  const { limit = 10, before = null } = options;
+  const { limit = 30, before = null } = options;
+  const MAX_LIMIT = 100;
+  const safeLimit = Math.min(limit, MAX_LIMIT);
   
   let url = MESSAGE_ENDPOINTS.GET_MESSAGES(chatGroupId);
-  const params = new URLSearchParams({ limit: limit.toString() });
+  const params = new URLSearchParams({ limit: safeLimit.toString() });
   
   if (before) {
     params.append('before', before);

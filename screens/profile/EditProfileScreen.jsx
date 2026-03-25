@@ -6,7 +6,7 @@ import { SafeAreaContainer, KeyboardAvoidingContainer, ScrollContainer } from '.
 import ScreenHeader from '../../components/ScreenHeader';
 import { ProfileForm, useProfileUpdate, extractProfileFormData, formatProfileData } from '../../features/profile';
 import { selectProfileData } from '../../store/slices/profile';
-import { validateProfileForm } from '../../shared/forms';
+import { validateName } from '../../shared/validators';
 
 /**
  * Edit Profile Screen - Container Component
@@ -40,10 +40,14 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
-    // Validate form
-    const validation = validateProfileForm(formData);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    // Validate required name fields
+    const firstNameResult = validateName(formData.firstName, 'First name');
+    const lastNameResult = validateName(formData.lastName, 'Last name');
+    if (!firstNameResult.isValid || !lastNameResult.isValid) {
+      setErrors({
+        firstName: firstNameResult.error,
+        lastName: lastNameResult.error,
+      });
       return;
     }
 

@@ -1,3 +1,5 @@
+import logger from "../../../utils/logger";
+
 import { useState, useCallback } from "react";
 import { departmentAPI } from "../../../shared/api";
 
@@ -16,7 +18,7 @@ export const useDepartments = () => {
       const data = await departmentAPI.getActiveDepartments();
       setDepartments(data.departments || []);
     } catch (error) {
-      console.error("Error fetching departments:", error);
+      logger.error("Error fetching departments:", error);
     } finally {
       setLoading(false);
     }

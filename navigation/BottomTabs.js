@@ -3,6 +3,7 @@ import { View, StyleSheet, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import AnimatedTabIcon from '../components/AnimatedTabIcon';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { ROUTES, TAB_CONFIG } from '../config/navigation';
 
 // Refactored Screens (Phase 5)
@@ -87,9 +88,15 @@ const BottomTabs = () => {
           backgroundColor: '#F9FAFB',
         }}
       >
-        <Tab.Screen name={ROUTES.DASHBOARD} component={DashboardScreen} />
-        <Tab.Screen name={ROUTES.MESSAGES} component={MessagesScreen} />
-        <Tab.Screen name={ROUTES.PROFILE} component={ProfileScreen} />
+        <Tab.Screen name={ROUTES.DASHBOARD}>
+          {() => <ErrorBoundary fallbackMessage="Dashboard failed to load."><DashboardScreen /></ErrorBoundary>}
+        </Tab.Screen>
+        <Tab.Screen name={ROUTES.MESSAGES}>
+          {() => <ErrorBoundary fallbackMessage="Messages failed to load."><MessagesScreen /></ErrorBoundary>}
+        </Tab.Screen>
+        <Tab.Screen name={ROUTES.PROFILE}>
+          {() => <ErrorBoundary fallbackMessage="Profile failed to load."><ProfileScreen /></ErrorBoundary>}
+        </Tab.Screen>
       </Tab.Navigator>
     </View>
   );

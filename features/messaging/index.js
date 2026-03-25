@@ -1,5 +1,4 @@
 // Central export for messaging feature module
-export { useMessages } from './hooks/useMessages';
 export { useSendMessage } from './hooks/useSendMessage';
 export { useMessageSocket } from './hooks/useMessageSocket';
 

@@ -1,3 +1,5 @@
+import logger from '../../../utils/logger';
+
 import { useState, useRef, useCallback } from "react";
 import { messageAPI } from "../../../shared/api";
 
@@ -37,7 +39,7 @@ export const useChatGroup = (clientId) => {
       
       return false; // No active chat
     } catch (error) {
-      console.log("No existing active chat group found:", error.message);
+      logger.info("No existing active chat group found:", error.message);
       return false; // No existing chat
     } finally {
       setIsLoadingChatGroup(false);
@@ -54,7 +56,7 @@ export const useChatGroup = (clientId) => {
       setChatGroupId(data.chat_group_id);
       return data.chat_group_id;
     } catch (error) {
-      console.error("Error creating chat group:", error);
+      logger.error("Error creating chat group:", error);
       return null;
     }
   }, []);

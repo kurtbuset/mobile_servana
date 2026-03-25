@@ -1,11 +1,40 @@
+import logger from "../../../utils/logger";
+
 import { useState, useEffect, useRef, useCallback } from "react";
-import { addDateSeparators } from "../utils/messageHelpers";
 import {
   registerMessageEvents,
   registerTypingEvents,
   registerConnectionEvents,
   joinChatGroup,
-} from "../../../contexts/SocketContext-simple";
+} from "../../../contexts/SocketContext";
+
+/**
+ * Check if a date separator is needed before appending a new message.
+ * Returns an array: either [dateSeparator, message] or just [message].
+ */
+const getItemsToAppend = (prevMessages, newMessage) => {
+  const newMsgDate = new Date(newMessage.timestamp).toDateString();
+
+  // Find the last real message's date
+  let lastMsgDate = null;
+  for (let i = prevMessages.length - 1; i >= 0; i--) {
+    if (prevMessages[i].type !== "date") {
+      lastMsgDate = new Date(prevMessages[i].timestamp).toDateString();
+      break;
+    }
+  }
+
+  if (lastMsgDate !== newMsgDate) {
+    const dateSeparator = {
+      id: `date-${newMsgDate}`,
+      type: "date",
+      date: newMsgDate,
+    };
+    return [dateSeparator, newMessage];
+  }
+
+  return [newMessage];
+};
 
 /**
  * Hook for managing socket events for messaging
@@ -66,17 +95,9 @@ export const useMessageSocket = (
     };
 
     setMessagesRef.current((prev) => {
-      const messagesOnly = prev.filter((m) => m.type !== "date");
-      const updatedMessages = [...messagesOnly, optimisticMessage];
-      return addDateSeparators(updatedMessages);
+      const itemsToAppend = getItemsToAppend(prev, optimisticMessage);
+      return [...prev, ...itemsToAppend];
     });
-
-    // Scroll to bottom
-    if (shouldAutoScrollRef.current) {
-      setTimeout(() => {
-        flatListRefRef.current?.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
 
     return tempId;
   }, []);
@@ -84,10 +105,7 @@ export const useMessageSocket = (
   // Function to remove optimistic message on error - stable callback
   const removeOptimisticMessage = useCallback((tempId) => {
     setMessagesRef.current((prev) => {
-      const messagesOnly = prev.filter(
-        (m) => m.type !== "date" && m.id !== tempId,
-      );
-      return addDateSeparators(messagesOnly);
+      return prev.filter((m) => m.id !== tempId);
     });
   }, []);
 
@@ -98,7 +116,7 @@ export const useMessageSocket = (
 
     // Check if socket is connected
     if (!socket.connected) {
-      console.log("⏸️ Socket not connected yet, waiting...");
+      logger.info("Socket not connected yet, waiting...");
     }
 
     // Join chat group using emitter
@@ -137,37 +155,28 @@ export const useMessageSocket = (
         };
 
         setMessagesRef.current((prev) => {
-          const messagesOnly = prev.filter((m) => m.type !== "date");
-          const exists = messagesOnly.some((m) => m.id === newMessage.id);
+          const exists = prev.some((m) => m.type !== "date" && m.id === newMessage.id);
           if (exists) {
-            return addDateSeparators(messagesOnly);
+            return prev;
           }
 
-          const updatedMessages = [...messagesOnly, newMessage];
-          return updatedMessages; // Don't add date separators
+          const itemsToAppend = getItemsToAppend(prev, newMessage);
+          return [...prev, ...itemsToAppend];
         });
-
-        // Scroll to bottom if user is at bottom
-        if (shouldAutoScrollRef.current) {
-          setTimeout(() => {
-            flatListRefRef.current?.current?.scrollToEnd({ animated: true });
-          }, 100);
-        }
       },
       onMessageDelivered: (data) => {
         // Update optimistic message with real chat ID
         setMessagesRef.current((prevMessages) => {
           return prevMessages.map((message) => {
             // Find temp message that matches this delivery
-            if (message.type !== "date" && 
-                message.isPending && 
+            if (message.type !== "date" &&
+                message.isPending &&
                 message.id.startsWith("temp-")) {
               return {
                 ...message,
                 id: `msg-${data.chat_id}`,
                 chatId: data.chat_id,
                 isPending: false,
-                // Keep current status - let messageStatusUpdate handle status changes
               };
             }
             return message;
@@ -177,31 +186,71 @@ export const useMessageSocket = (
       onMessageStatusUpdate: (data) => {
         // Update message status based on chat_id (backend sends chatId)
         const chatId = data.chat_id || data.chatId;
-        
+
         setMessagesRef.current((prevMessages) => {
           return prevMessages.map((message) => {
             if (message.type === "date") return message;
-            
+
             // Try multiple matching strategies
             const matchesById = message.id === `msg-${chatId}`;
             const matchesByChatId = message.chatId === chatId;
             const matchesByTempId = message.isPending && message.id.startsWith("temp-");
-            
+
             if (matchesById || matchesByChatId || matchesByTempId) {
               return {
                 ...message,
                 status: data.status,
-                chatId: chatId, // Ensure chatId is set
-                isPending: false, // Mark as no longer pending
+                chatId: chatId,
+                isPending: false,
               };
             }
             return message;
           });
         });
       },
+      onChatTransferred: (data) => {
+        logger.info('transferData: ', data)
+        // Handle chat transfer notification
+        logger.info("Chat transferred:", data);
+
+        // Create transfer message
+        let transferText = '';
+        if (data.transfer_type === 'manual') {
+          transferText =  `Chat transferred to ${data.to_dept}`;
+        } else if (data.transfer_type === 'agent_offline') {
+          transferText = 'Chat reassigned (previous agent went offline)';
+        } else {
+          transferText = 'Chat transferred';
+        }
+
+        const transferMessage = {
+          id: `transfer-${Date.now()}`,
+          sender: 'system',
+          sender_type: 'system',
+          message_type: 'transfer',
+          content: transferText,
+          timestamp: data.timestamp || new Date().toISOString(),
+          displayTime: new Date(data.timestamp || new Date()).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          transfer_data: {
+            transfer_type: data.transfer_type,
+            to_dept: data.to_dept,
+            to_agent: data.to_agent,
+            from_dept: data.from_dept,
+          },
+          isPending: false,
+        };
+
+        setMessagesRef.current((prev) => {
+          const itemsToAppend = getItemsToAppend(prev, transferMessage);
+          return [...prev, ...itemsToAppend];
+        });
+      },
       onMessageError: (error) => {
         // Handle message error if needed
-        console.error("❌ Message error:", error);
+        logger.error("Message error:", error);
       },
     });
 
@@ -256,7 +305,7 @@ export const useMessageSocket = (
       cleanupTyping();
       cleanupConnection();
     };
-  }, [chatGroupId, socket]); // Removed clientId dependency - using ref instead
+  }, [chatGroupId, socket]);
 
   return {
     isTyping,
