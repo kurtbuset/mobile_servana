@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { selectClient } from "../../store/slices/profile";
 import { useSocket } from "../../contexts";
+import logger from "../../utils/logger";
 import {
   MessageHeader,
   MessageList,
@@ -81,6 +82,23 @@ const MessagesScreen = React.memo(() => {
     setMessages, // Use setMessages from messageHistory directly
     shouldAutoScroll,
     flatListRef,
+    // Callback when chat is resolved - navigate to PostChatScreen
+    useCallback((data) => {
+      logger.info("Chat resolved, navigating to PostChatScreen");
+      
+      // Calculate chat stats
+      const stats = formatChatStats(historyMessages, clientId);
+      
+      // Navigate to PostChatScreen with chat data
+      setTimeout(() => {
+        navigation.navigate('PostChat', {
+          chatDuration: stats.duration,
+          messageCount: stats.messageCount,
+          rating: null, // Will be set if user provided feedback
+          feedback: null,
+        });
+      }, 1500); // Delay to show the resolved message
+    }, [navigation, historyMessages, clientId]),
   );
 
   const sendMessage = useSendMessage(socket, chatGroupId, clientId);
@@ -99,9 +117,23 @@ const MessagesScreen = React.memo(() => {
     };
     
     setMessages(prev => [...prev, endMessage]);
-    resetChatGroup();
-    loadDepartments();
-  }, [setMessages, resetChatGroup, loadDepartments]);
+    
+    // Navigate to PostChatScreen with feedback data
+    setTimeout(() => {
+      navigation.navigate('PostChat', {
+        chatDuration: feedbackData.chatDuration || null,
+        messageCount: feedbackData.messageCount || 0,
+        rating: feedbackData.rating || null,
+        feedback: feedbackData.feedback || null,
+      });
+    }, 500);
+    
+    // Reset chat group after navigation
+    setTimeout(() => {
+      resetChatGroup();
+      loadDepartments();
+    }, 1000);
+  }, [setMessages, navigation, resetChatGroup, loadDepartments]);
 
   const endChat = useEndChat(chatGroupId, handleChatEnd);
 

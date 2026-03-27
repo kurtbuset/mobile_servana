@@ -7,6 +7,20 @@ import Feather from "react-native-vector-icons/Feather";
  * Enhanced to show transfer messages and agent names (matches web implementation)
  */
 const MessageBubbleComponent = ({ message, isUser, isLatestUserMessage = false, MessageStatus }) => {
+  // Handle resolved messages
+  if (message.message_type === 'resolved') {
+    return (
+      <View style={styles.resolvedContainer}>
+        <View style={styles.resolvedLine} />
+        <View style={styles.resolvedBubble}>
+          <Feather name="check-circle" size={12} color="#6B7280" style={styles.resolvedIcon} />
+          <Text style={styles.resolvedText}>{message.content}</Text>
+        </View>
+        <View style={styles.resolvedLine} />
+      </View>
+    );
+  }
+
   // Handle transfer/system messages
   if (message.message_type === 'transfer' || message.sender_type === 'system') {
     return (
@@ -205,6 +219,37 @@ const styles = StyleSheet.create({
   transferText: {
     fontSize: 11,
     color: "#6C5CE7",
+    fontWeight: "500",
+  },
+  // Resolved message styles
+  resolvedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 12,
+    paddingHorizontal: 16,
+  },
+  resolvedLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(107, 114, 128, 0.2)",
+  },
+  resolvedBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    marginHorizontal: 8,
+  },
+  resolvedIcon: {
+    marginRight: 6,
+  },
+  resolvedText: {
+    fontSize: 11,
+    color: "#6B7280",
     fontWeight: "500",
   },
 });

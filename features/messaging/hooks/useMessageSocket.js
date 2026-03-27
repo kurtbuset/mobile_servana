@@ -47,6 +47,7 @@ export const useMessageSocket = (
   setMessages,
   shouldAutoScroll,
   flatListRef,
+  onChatResolved, // Add callback for when chat is resolved
 ) => {
   const [isTyping, setIsTyping] = useState(false);
   const [typingAgentName, setTypingAgentName] = useState("Agent");
@@ -248,6 +249,36 @@ export const useMessageSocket = (
           return [...prev, ...itemsToAppend];
         });
       },
+      onChatResolved: (data) => {
+        logger.info("Chat resolved:", data);
+
+        // Create resolved message separator
+        const resolvedMessage = {
+          id: `resolved-${Date.now()}`,
+          sender: 'system',
+          sender_type: 'system',
+          message_type: 'resolved',
+          content: 'Chat has been resolved',
+          timestamp: data.resolved_at || new Date().toISOString(),
+          displayTime: new Date(data.resolved_at || new Date()).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          resolved_by_type: data.resolved_by_type,
+          resolved_by_id: data.resolved_by_id,
+          isPending: false,
+        };
+
+        setMessagesRef.current((prev) => {
+          const itemsToAppend = getItemsToAppend(prev, resolvedMessage);
+          return [...prev, ...itemsToAppend];
+        });
+
+        // Trigger callback if provided (for navigation)
+        if (onChatResolved) {
+          onChatResolved(data);
+        }
+      },
       onMessageError: (error) => {
         // Handle message error if needed
         logger.error("Message error:", error);
@@ -305,7 +336,7 @@ export const useMessageSocket = (
       cleanupTyping();
       cleanupConnection();
     };
-  }, [chatGroupId, socket]);
+  }, [chatGroupId, socket, onChatResolved]);
 
   return {
     isTyping,
