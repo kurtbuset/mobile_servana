@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
+import { ROUTES } from '../../config/navigation';
 
 /**
  * Post Chat Screen
@@ -28,15 +29,15 @@ export default function PostChatScreen() {
   } = route.params || {};
 
   const handleStartNewChat = () => {
-    navigation.navigate('Messages');
+    navigation.navigate(ROUTES.HOME, { screen: ROUTES.MESSAGES });
   };
 
   const handleViewHistory = () => {
-    navigation.navigate('ChatHistory');
+    navigation.navigate(ROUTES.CHAT_HISTORY);
   };
 
   const handleBackToDashboard = () => {
-    navigation.navigate('Dashboard');
+    navigation.navigate(ROUTES.HOME);
   };
 
   return (

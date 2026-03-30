@@ -25,6 +25,7 @@ export const ROUTES = {
   MESSAGES: "Messages",
   POST_CHAT: "PostChat",
   CHAT_HISTORY: "ChatHistory",
+  CHAT_HISTORY_DETAIL: "ChatHistoryDetail",
   PROFILE: "Profile",
 
   // Profile Stack

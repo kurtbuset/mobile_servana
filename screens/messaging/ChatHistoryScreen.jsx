@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 import { messageAPI } from '../../shared/api';
+import { ROUTES } from '../../config/navigation';
 
 /**
  * Chat History Screen
@@ -30,10 +31,11 @@ export default function ChatHistoryScreen() {
   }, []);
 
   const loadChatHistory = async () => {
+    
     try {
       setIsLoading(true);
       const history = await messageAPI.getResolvedChats();
-      
+      console.log(JSON.stringify(history, null, 2))
       // Format the data for display
       const formattedHistory = history.map(chat => ({
         ...chat,
@@ -104,10 +106,9 @@ export default function ChatHistoryScreen() {
     <TouchableOpacity 
       style={styles.chatItem}
       onPress={() => {
-        // Navigate to chat details view
-        navigation.navigate('Messages', { 
-          viewChatHistory: true, 
-          chatGroupId: item.chat_group_id 
+        navigation.navigate(ROUTES.CHAT_HISTORY_DETAIL, {
+          chatGroupId: item.chat_group_id,
+          department: item.department,
         });
       }}
     >
@@ -150,10 +151,10 @@ export default function ChatHistoryScreen() {
           <Feather name="check-circle" size={12} color="#10B981" />
           <Text style={styles.statusText}>Chat Completed</Text>
         </View>
-        <TouchableOpacity style={styles.viewButton}>
+        <View style={styles.viewButton}>
           <Text style={styles.viewButtonText}>View Details</Text>
           <Feather name="chevron-right" size={14} color="#7C3AED" />
-        </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   ), [navigation]);
@@ -183,7 +184,7 @@ export default function ChatHistoryScreen() {
       </View>
       <TouchableOpacity
         style={styles.startChatButton}
-        onPress={() => navigation.navigate('Messages')}
+        onPress={() => navigation.navigate(ROUTES.MESSAGES)}
       >
         <Feather name="plus" size={20} color="#fff" />
         <Text style={styles.startChatButtonText}>Start New Chat</Text>

@@ -12,6 +12,7 @@ import {
 } from "../screens/profile/index";
 import PostChatScreen from "../screens/messaging/PostChatScreen";
 import ChatHistoryScreen from "../screens/messaging/ChatHistoryScreen";
+import ChatHistoryDetailScreen from "../screens/messaging/ChatHistoryDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -116,6 +117,14 @@ const AppNavigation = () => {
             <Stack.Screen
               name={ROUTES.CHAT_HISTORY}
               component={ChatHistoryScreen}
+              options={{
+                ...SLIDE_RIGHT,
+                ...SCREEN_OPTIONS.LIGHT_BG,
+              }}
+            />
+            <Stack.Screen
+              name={ROUTES.CHAT_HISTORY_DETAIL}
+              component={ChatHistoryDetailScreen}
               options={{
                 ...SLIDE_RIGHT,
                 ...SCREEN_OPTIONS.LIGHT_BG,
