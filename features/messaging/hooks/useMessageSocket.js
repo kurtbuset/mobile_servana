@@ -5,7 +5,6 @@ import {
   registerMessageEvents,
   registerTypingEvents,
   registerConnectionEvents,
-  joinChatGroup,
 } from "../../../contexts/SocketContext";
 
 /**
@@ -119,13 +118,6 @@ export const useMessageSocket = (
     if (!socket.connected) {
       logger.info("Socket not connected yet, waiting...");
     }
-
-    // Join chat group using emitter
-    joinChatGroup(socket, {
-      groupId: chatGroupId,
-      userType: "client",
-      userId: clientIdRef.current,
-    });
 
     // Register message events
     const cleanupMessages = registerMessageEvents(socket, {
@@ -320,12 +312,7 @@ export const useMessageSocket = (
     // Register connection events (for reconnection handling)
     const cleanupConnection = registerConnectionEvents(socket, {
       onConnect: () => {
-        // Re-join chat group on reconnection
-        joinChatGroup(socket, {
-          groupId: chatGroupId,
-          userType: "client",
-          userId: clientIdRef.current,
-        });
+        logger.info("Socket reconnected - room join will be handled by screen focus");
       },
     });
 

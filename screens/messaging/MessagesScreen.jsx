@@ -10,10 +10,11 @@ import {
   Text,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { selectClient } from "../../store/slices/profile";
 import { useSocket } from "../../contexts";
+import { leaveChatGroup, joinChatGroup } from "../../contexts/SocketContext/emitters";
 import logger from "../../utils/logger";
 import {
   MessageHeader,
@@ -46,12 +47,13 @@ const MessagesScreen = React.memo(() => {
   // UI State - minimal state to prevent re-renders
   const [showCannedMessages, setShowCannedMessages] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
+  const [isScreenFocused, setIsScreenFocused] = useState(false);
   const flatListRef = useRef(null);
 
   // Memoize all hook calls to prevent recreation
   const chatGroup = useChatGroup(clientId);
   const departments = useDepartments();
-  const messageHistory = useMessageHistory(chatGroup.chatGroupId, flatListRef);
+  const messageHistory = useMessageHistory(chatGroup.chatGroupId, flatListRef, isScreenFocused);
   
   // Extract values with memoization
   const {
@@ -105,18 +107,8 @@ const MessagesScreen = React.memo(() => {
 
   // End chat with memoized callback
   const handleChatEnd = useCallback((response, feedbackData) => {
-    const endMessage = {
-      id: `end_${Date.now()}`,
-      sender: "system",
-      content: "Chat session ended. You can continue with a new inquiry below.",
-      timestamp: new Date().toISOString(),
-      displayTime: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
     
-    setMessages(prev => [...prev, endMessage]);
+    setMessages(prev => [...prev]);
     
     // Navigate to PostChatScreen with feedback data
     setTimeout(() => {
@@ -154,6 +146,34 @@ const MessagesScreen = React.memo(() => {
     }
   }, [clientId, initializeChatGroup, loadDepartments]);
 
+  // Handle screen focus/blur - join room and control message loading
+  useFocusEffect(
+    useCallback(() => {
+      // Screen is focused
+      setIsScreenFocused(true);
+      
+      // Join chat room if chatGroupId exists
+      if (chatGroupId && socket && socket.connected) {
+        logger.info("📱 MessagesScreen focused, joining chat group:", chatGroupId);
+        joinChatGroup(socket, {
+          groupId: chatGroupId,
+          userType: "client",
+          userId: clientId,
+        });
+      }
+
+      // Cleanup function - runs when screen loses focus
+      return () => {
+        setIsScreenFocused(false);
+        
+        if (chatGroupId && socket) {
+          logger.info("🚪 MessagesScreen blurred, leaving chat group:", chatGroupId);
+          leaveChatGroup(socket, chatGroupId);
+        }
+      };
+    }, [chatGroupId, socket, clientId])
+  );
+
   // Memoized event handlers
   const handleSendMessage = useCallback(async (text = null) => {
     const content = text ?? inputMessage.trim();
@@ -178,18 +198,8 @@ const MessagesScreen = React.memo(() => {
     const newChatGroupId = await createChatGroupWithDepartment(department.dept_id);
     
     if (newChatGroupId) {
-      const message = {
-        id: `new_inquiry_${Date.now()}`,
-        sender: "system",
-        content: `New inquiry started with ${department.dept_name} department.`,
-        timestamp: new Date().toISOString(),
-        displayTime: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
       
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => [...prev]);
       await sendMessage.sendMessage(department.dept_name, newChatGroupId);
     }
   }, [createChatGroupWithDepartment, setMessages, sendMessage]);

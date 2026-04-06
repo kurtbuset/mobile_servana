@@ -16,7 +16,6 @@ import Feather from 'react-native-vector-icons/Feather';
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const profile = useSelector(selectProfileData);
-  logger.info('client data: ', JSON.stringify(profile, null, 2))
   const { logout } = useAuth();
   const { pickImage, uploadImage, loading: uploadLoading } = useImageUpload();
 

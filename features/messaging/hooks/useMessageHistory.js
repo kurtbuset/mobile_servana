@@ -8,8 +8,11 @@ import { addDateSeparators } from "../utils/messageHelpers";
  * Hook for managing message history with pagination
  * Token is automatically included in API requests via interceptor
  * Modified to preserve messages for continuous chat experience
+ * @param {string} chatGroupId - The chat group ID
+ * @param {object} flatListRef - Reference to the FlatList
+ * @param {boolean} shouldLoad - Whether to load messages (e.g., only when screen is focused)
  */
-export const useMessageHistory = (chatGroupId, flatListRef) => {
+export const useMessageHistory = (chatGroupId, flatListRef, shouldLoad = true) => {
   const [messages, setMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -48,6 +51,8 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
           limit: 30,
           before,
         });
+
+        console.log('kjasdasdjkdn')
 
         // Handle both old and new response formats
         const messagesData = data.messages || data;
@@ -162,14 +167,14 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
     await loadMessages(oldestMessageTimestamp, true);
   }, [hasMoreMessages, oldestMessageTimestamp, loadMessages]);
 
-  // Load initial messages when chat group changes
+  // Load initial messages when chat group changes (only if shouldLoad is true)
   useEffect(() => {
-    if (chatGroupId) {
+    if (chatGroupId && shouldLoad) {
       setLastChatGroupId(chatGroupId);
       loadMessages();
     }
     // DON'T clear messages when chatGroupId becomes null - preserve for continuous chat
-  }, [chatGroupId, loadMessages]);
+  }, [chatGroupId, loadMessages, shouldLoad]);
 
   return {
     messages,

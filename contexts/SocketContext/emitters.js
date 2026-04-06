@@ -29,6 +29,16 @@ export const joinChatGroup = (socket, data) => {
   return true;
 };
 
+export const leaveChatGroup = (socket, chatGroupId) => {
+  if (!socket || !socket.connected) {
+    logger.warn("⚠️ Cannot leave chat group - socket not connected");
+    return false;
+  }
+  socket.emit("chat:leave", { chatGroupId });
+  logger.info("🚪 Left chat group:", chatGroupId);
+  return true;
+};
+
 // ============= TYPING EMITTERS =============
 
 export const emitTyping = (socket, data) => {

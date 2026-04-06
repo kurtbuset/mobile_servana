@@ -15,7 +15,7 @@ const getBaseURL = () => {
   if (envURL) return envURL;
 
   if (ENV.IS_WEB) return 'http://localhost:5000';
-  if (ENV.DEV) return 'http://172.26.240.1:5000';
+  if (ENV.DEV) return 'http://192.168.137.2:5000';
   return 'https://api.servana.com';
 };
 
