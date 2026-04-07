@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   StyleSheet,
-  Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
@@ -32,24 +32,17 @@ export const EndChatModal = ({
       setStep('rating');
     } else if (step === 'rating') {
       // Submit rating and end chat
-      onConfirmEndChat({
+      const feedbackData = {
         rating,
         feedback,
         chatDuration,
         messageCount
-      });
-      setStep('complete');
+      };
+      console.log('📤 EndChatModal sending feedback:', feedbackData);
+      onConfirmEndChat(feedbackData);
+      // Close modal immediately after submitting
+      resetModal();
     }
-  };
-
-  const handleSkipRating = () => {
-    onConfirmEndChat({
-      rating: 0,
-      feedback: '',
-      chatDuration,
-      messageCount
-    });
-    setStep('complete');
   };
 
   const resetModal = () => {
@@ -131,80 +124,78 @@ export const EndChatModal = ({
     </View>
   );
 
-  const renderRatingStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.iconContainer}>
-        <Feather name="heart" size={48} color="#7C3AED" />
-      </View>
-      
-      <Text style={styles.title}>Rate Your Experience</Text>
-      <Text style={styles.subtitle}>
-        How was your chat experience? Your feedback helps us improve our service.
-      </Text>
-
-      {renderStars()}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          onPress={handleSkipRating}
-          style={[styles.button, styles.skipButton]}
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          onPress={handleEndChat}
-          style={[styles.button, styles.submitButton]}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {rating > 0 ? 'Submit Rating' : 'End Without Rating'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderCompleteStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.iconContainer}>
-        <Feather name="check-circle" size={48} color="#10B981" />
-      </View>
-      
-      <Text style={styles.title}>Chat Ended Successfully</Text>
-      <Text style={styles.subtitle}>
-        Thank you for using our service. Your conversation has been saved and you can view it in your chat history.
-      </Text>
-
-      {rating > 0 && (
-        <View style={styles.ratingDisplay}>
-          <Text style={styles.ratingText}>Your Rating:</Text>
-          <View style={styles.finalStars}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Feather
-                key={star}
-                name="star"
-                size={20}
-                color={star <= rating ? '#FFD700' : '#E5E7EB'}
-                style={star <= rating && styles.filledStar}
-              />
-            ))}
-          </View>
+  const renderRatingStep = () => {
+    // Check if both rating and feedback are provided
+    const isFormValid = rating > 0 && feedback.trim().length > 0;
+    
+    return (
+      <View style={styles.stepContainer}>
+        <View style={styles.iconContainer}>
+          <Feather name="heart" size={48} color="#7C3AED" />
         </View>
-      )}
+        
+        <Text style={styles.title}>Rate Your Experience</Text>
+        <Text style={styles.subtitle}>
+          Please rate your chat experience and share your feedback. Both are required to help us improve our service.
+        </Text>
 
-      <TouchableOpacity
-        onPress={resetModal}
-        style={[styles.button, styles.doneButton]}
-      >
-        <Text style={styles.doneButtonText}>Done</Text>
-      </TouchableOpacity>
-    </View>
-  );
+        {renderStars()}
+        
+        {rating === 0 && (
+          <Text style={styles.requiredText}>Please select a rating</Text>
+        )}
+
+        <TextInput
+          style={[
+            styles.feedbackInput,
+            feedback.trim().length === 0 && styles.feedbackInputError
+          ]}
+          placeholder="Share your thoughts (required) *"
+          placeholderTextColor="#9CA3AF"
+          value={feedback}
+          onChangeText={setFeedback}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          maxLength={500}
+        />
+        
+        {feedback.trim().length === 0 && (
+          <Text style={styles.requiredText}>Feedback is required</Text>
+        )}
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            onPress={resetModal}
+            style={[styles.button, styles.cancelButton]}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={handleEndChat}
+            style={[
+              styles.button, 
+              styles.submitButton,
+              !isFormValid && styles.submitButtonDisabled
+            ]}
+            disabled={isLoading || !isFormValid}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={[
+                styles.submitButtonText,
+                !isFormValid && styles.submitButtonTextDisabled
+              ]}>
+                Submit & End Chat
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <Modal
@@ -219,7 +210,6 @@ export const EndChatModal = ({
             <View style={styles.modalContent}>
               {step === 'confirm' && renderConfirmStep()}
               {step === 'rating' && renderRatingStep()}
-              {step === 'complete' && renderCompleteStep()}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -289,7 +279,7 @@ const styles = StyleSheet.create({
   starsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   starButton: {
     padding: 4,
@@ -299,6 +289,29 @@ const styles = StyleSheet.create({
     textShadowColor: '#FFD700',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
+  },
+  feedbackInput: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#1F2937',
+    minHeight: 100,
+    marginBottom: 8,
+  },
+  feedbackInputError: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
+  },
+  requiredText: {
+    fontSize: 12,
+    color: '#EF4444',
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+    marginLeft: 4,
   },
   ratingDisplay: {
     alignItems: 'center',
@@ -352,10 +365,16 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#7C3AED',
   },
+  submitButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  submitButtonTextDisabled: {
+    color: '#9CA3AF',
   },
   doneButton: {
     backgroundColor: '#10B981',

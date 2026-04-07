@@ -84,41 +84,26 @@ const MessagesScreen = React.memo(() => {
     setMessages, // Use setMessages from messageHistory directly
     shouldAutoScroll,
     flatListRef,
-    // Callback when chat is resolved - navigate to PostChatScreen
-    useCallback((data) => {
-      logger.info("Chat resolved, navigating to PostChatScreen");
-      
-      // Calculate chat stats
-      const stats = formatChatStats(historyMessages, clientId);
-      
-      // Navigate to PostChatScreen with chat data
-      setTimeout(() => {
-        navigation.navigate('PostChat', {
-          chatDuration: stats.duration,
-          messageCount: stats.messageCount,
-          rating: null, // Will be set if user provided feedback
-          feedback: null,
-        });
-      }, 1500); // Delay to show the resolved message
-    }, [navigation, historyMessages, clientId]),
   );
 
   const sendMessage = useSendMessage(socket, chatGroupId, clientId);
 
   // End chat with memoized callback
   const handleChatEnd = useCallback((response, feedbackData) => {
+    console.log('🎯 handleChatEnd received:', { response, feedbackData });
     
     setMessages(prev => [...prev]);
     
-    // Navigate to PostChatScreen with feedback data
+    // Close the modal first, then navigate to PostChatScreen with feedback data
     setTimeout(() => {
-      navigation.navigate('PostChat', {
+      const navParams = {
         chatDuration: feedbackData.chatDuration || null,
         messageCount: feedbackData.messageCount || 0,
-        rating: feedbackData.rating || null,
-        feedback: feedbackData.feedback || null,
-      });
-    }, 500);
+        rating: feedbackData.rating > 0 ? feedbackData.rating : null,
+        feedback: feedbackData.feedback && feedbackData.feedback.trim() !== '' ? feedbackData.feedback : null,
+      };
+      navigation.navigate('PostChat', navParams);
+    }, 300); // Reduced delay for smoother transition
     
     // Reset chat group after navigation
     setTimeout(() => {
@@ -291,8 +276,8 @@ const MessagesScreen = React.memo(() => {
                 disabled={!chatGroupId || sendMessage.sending}
                 socket={socket}
                 chatGroupId={chatGroupId}
-                clientId={clientId}
-                clientName={client?.prof_id?.prof_firstname || "Client"}
+                clientId={clientId}r
+                clientName={client?.prof_id?.pof_firstname || "Client"}
               />
             )}
 

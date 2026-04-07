@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   View,
   Text,
@@ -24,8 +23,8 @@ export default function PostChatScreen() {
   const { 
     chatDuration = null,
     messageCount = 0,
-    rating = null,
-    feedback = null 
+    rating,
+    feedback
   } = route.params || {};
 
   const handleStartNewChat = () => {
@@ -78,7 +77,7 @@ export default function PostChatScreen() {
             </View>
           </View>
 
-          {rating && (
+          {rating > 0 && (
             <View style={styles.ratingSection}>
               <Text style={styles.ratingLabel}>Your Rating</Text>
               <View style={styles.stars}>
@@ -94,7 +93,7 @@ export default function PostChatScreen() {
             </View>
           )}
 
-          {feedback && (
+          {feedback && feedback.trim() !== '' && (
             <View style={styles.feedbackSection}>
               <Text style={styles.feedbackLabel}>Your Feedback</Text>
               <Text style={styles.feedbackText}>"{feedback}"</Text>

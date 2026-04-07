@@ -52,8 +52,6 @@ export const useMessageHistory = (chatGroupId, flatListRef, shouldLoad = true) =
           before,
         });
 
-        console.log('kjasdasdjkdn')
-
         // Handle both old and new response formats
         const messagesData = data.messages || data;
         const paginationMeta = data.pagination;

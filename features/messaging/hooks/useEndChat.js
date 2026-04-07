@@ -30,8 +30,6 @@ export const useEndChat = (chatGroupId, onChatEnded) => {
         endedAt: new Date().toISOString(),
       });
 
-      logger.info('✅ Chat ended successfully:', response);
-
       // Call the callback to handle navigation/cleanup
       if (onChatEnded) {
         onChatEnded(response, feedbackData);
