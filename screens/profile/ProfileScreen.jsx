@@ -1,9 +1,11 @@
+import logger from '../../utils/logger';
+
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { SafeAreaContainer, ScrollContainer } from '../../components/layout';
-import { ProfileHeader, ProfileStats } from '../../features/profile';
+import { ProfileHeader, ProfileStats, useImageUpload } from '../../features/profile';
 import { selectProfileData } from '../../store/slices/profile';
 import { useAuth } from '../../contexts/AuthContext';
 import Feather from 'react-native-vector-icons/Feather';
@@ -15,6 +17,23 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const profile = useSelector(selectProfileData);
   const { logout } = useAuth();
+  const { pickImage, uploadImage, loading: uploadLoading } = useImageUpload();
+
+  const handleImagePress = async () => {
+    const pickResult = await pickImage();
+    if (!pickResult.success) {
+      if (pickResult.error) {
+        Alert.alert('Error', pickResult.error);
+      }
+      return;
+    }
+    const uploadResult = await uploadImage(pickResult.image.uri);
+    if (!uploadResult.success) {
+      Alert.alert('Error', uploadResult.error || 'Failed to upload image');
+    } else {
+      Alert.alert('Success', 'Profile picture updated successfully!');
+    }
+  };
 
   const stats = [
     { label: 'Messages', value: '0' },
@@ -39,7 +58,7 @@ export default function ProfileScreen() {
               // Navigation will be handled automatically by App.jsx
               // when isAuthenticated becomes false
             } catch (error) {
-              console.error('Logout error:', error);
+              logger.error('Logout error:', error);
               Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },
@@ -75,7 +94,7 @@ export default function ProfileScreen() {
           <ProfileHeader
             profile={profile}
             onEditPress={() => navigation.navigate('EditProfile')}
-            onImagePress={() => navigation.navigate('ProfilePicture')}
+            onImagePress={handleImagePress}
           />
 
           <ProfileStats stats={stats} />
@@ -109,6 +128,11 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollContainer>
+      {uploadLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#6C5CE7" />
+        </View>
+      )}
     </SafeAreaContainer>
   );
 }
@@ -140,5 +164,11 @@ const styles = StyleSheet.create({
   },
   dangerLabel: {
     color: '#EF4444',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

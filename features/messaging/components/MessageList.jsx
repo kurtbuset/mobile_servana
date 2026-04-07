@@ -1,10 +1,42 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import { formatDateLabel } from '../utils/messageHelpers';
+import React, { useEffect, useCallback, useRef } from "react";
+import {
+  FlatList,
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+} from "react-native";
+import { MessageBubble } from "./MessageBubble";
+import { DateSeparator } from "./DateSeparator";
+import { TypingIndicator } from "./TypingIndicator";
+import { getStatusDisplayText, getStatusColor } from "../utils/messageStatusHelpers";
 
 /**
- * Message List Component with pagination support
+ * MessageStatus - Displays message delivery and read status as text
+ */
+function MessageStatus({ status, style = {} }) {
+  const statusText = getStatusDisplayText(status);
+  const statusColor = getStatusColor(status, true); // app uses dark theme
+  return (
+    <Text
+      style={[
+        {
+          fontSize: 10,
+          fontWeight: '500',
+          color: statusColor,
+        },
+        style
+      ]}
+    >
+      {statusText}
+    </Text>
+  );
+}
+
+/**
+ * MessageList Component
+ * Renders messages in a FlatList with typing indicator as footer
+ * This ensures typing indicator pushes messages up like Messenger
  */
 export const MessageList = ({
   messages,
@@ -12,190 +44,112 @@ export const MessageList = ({
   onScroll,
   isLoadingMessages,
   hasMoreMessages,
+  isTyping = false,
+  typingAgentName,
+  typingAgentImage,
+  latestUserMessageIndex = -1,
+  shouldAutoScroll = true,
 }) => {
-  const renderMessage = ({ item, index }) => {
-    // Render date separator
-    if (item.type === 'date') {
+  const prevContentHeightRef = useRef(0);
+
+  // Auto-scroll when typing indicator appears
+  useEffect(() => {
+    if (isTyping && flatListRef?.current) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [isTyping, flatListRef]);
+
+  // Auto-scroll when content size grows
+  const handleContentSizeChange = useCallback((width, height) => {
+    if (height > prevContentHeightRef.current && shouldAutoScroll) {
+      flatListRef?.current?.scrollToEnd({ animated: true });
+    }
+    prevContentHeightRef.current = height;
+  }, [shouldAutoScroll, flatListRef]);
+
+  const renderItem = useCallback(({ item, index }) => {
+    if (item.type === "date") {
+      return <DateSeparator date={item.date} />;
+    }
+
+    const isLatestUserMessage = index === latestUserMessageIndex;
+    return (
+      <MessageBubble
+        message={item}
+        isUser={item.sender === "user"}
+        isLatestUserMessage={isLatestUserMessage}
+        MessageStatus={MessageStatus}
+      />
+    );
+  }, [latestUserMessageIndex]);
+
+  const renderFooter = useCallback(() => {
+    if (isTyping) {
       return (
-        <View style={styles.dateSeparatorContainer}>
-          <View style={styles.dateSeparatorLine} />
-          <Text style={styles.dateSeparatorText}>{formatDateLabel(item.date)}</Text>
-          <View style={styles.dateSeparatorLine} />
+        <TypingIndicator
+          agentImage={typingAgentImage}
+          agentName={typingAgentName}
+        />
+      );
+    }
+    return null;
+  }, [isTyping, typingAgentImage, typingAgentName]);
+
+  const renderHeader = useCallback(() => {
+    if (isLoadingMessages && hasMoreMessages) {
+      return (
+        <View style={styles.loadingHeader}>
+          <ActivityIndicator size="small" color="#6A1B9A" />
+          <Text style={styles.loadingText}>Loading more messages...</Text>
         </View>
       );
     }
-
-    // Render message bubble
-    const isAgent = item.sender === 'admin';
-    const nextMessage = messages[index + 1];
-    const isLastInGroup = !nextMessage || nextMessage.type === 'date' || nextMessage.sender !== item.sender;
-    const showAvatar = isAgent && isLastInGroup;
-
-    return (
-      <View style={[styles.messageContainer, { alignSelf: isAgent ? 'flex-start' : 'flex-end' }]}>
-        {/* Agent Avatar */}
-        {isAgent && (
-          <View style={styles.avatarContainer}>
-            {showAvatar ? (
-              <View style={styles.avatar}>
-                <Feather name="user" size={18} color="#7C3AED" />
-              </View>
-            ) : (
-              <View style={styles.avatarSpacer} />
-            )}
-          </View>
-        )}
-
-        {/* Message Bubble */}
-        <View style={[styles.messageBubble, isAgent ? styles.adminBubble : styles.userBubble]}>
-          <Text style={[styles.messageText, isAgent ? styles.adminText : styles.userText]}>
-            {item.content}
-          </Text>
-          <Text style={[styles.timeText, isAgent ? styles.adminTimeText : styles.userTimeText]}>
-            {item.displayTime}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+    return null;
+  }, [isLoadingMessages, hasMoreMessages]);
 
   return (
     <FlatList
       ref={flatListRef}
       data={messages}
-      keyExtractor={(item) => item.id.toString()}
-      renderItem={renderMessage}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
+      renderItem={renderItem}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.messageList}
       onScroll={onScroll}
+      onContentSizeChange={handleContentSizeChange}
       scrollEventThrottle={16}
-      maintainVisibleContentPosition={{
-        minIndexForVisible: 0,
-        autoscrollToTopThreshold: 10,
-      }}
-      ListHeaderComponent={() =>
-        hasMoreMessages && isLoadingMessages ? (
-          <View style={styles.loadingHeader}>
-            <ActivityIndicator size="small" color="#007AFF" />
-            <Text style={styles.loadingHeaderText}>Loading older messages...</Text>
-          </View>
-        ) : hasMoreMessages ? (
-          <View style={styles.loadingHeader}>
-            <Text style={styles.scrollHintText}>Scroll up to load older messages</Text>
-          </View>
-        ) : null
-      }
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={renderFooter}
+      style={styles.flatList}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={15}
+      windowSize={10}
+      initialNumToRender={20}
+      updateCellsBatchingPeriod={50}
+      keyboardDismissMode="on-drag"
     />
   );
 };
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingBottom: 20,
-    paddingTop: 10,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginVertical: 2,
-    paddingHorizontal: 16,
-  },
-  avatarContainer: {
-    marginRight: 8,
-    marginBottom: 2,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3E8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E9D5FF',
-  },
-  avatarSpacer: {
-    width: 32,
-    height: 32,
-  },
-  messageBubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    maxWidth: '75%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  userBubble: {
-    backgroundColor: '#7C3AED',
-    borderBottomRightRadius: 4,
-  },
-  adminBubble: {
-    backgroundColor: '#F3F4F6',
-    borderBottomLeftRadius: 4,
-  },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  userText: {
-    color: '#fff',
-  },
-  adminText: {
-    color: '#1F2937',
-  },
-  timeText: {
-    fontSize: 10,
-    textAlign: 'right',
-    marginTop: 3,
-    fontWeight: '400',
-  },
-  userTimeText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-  },
-  adminTimeText: {
-    color: '#9CA3AF',
-  },
-  dateSeparatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dateSeparatorLine: {
+  flatList: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
   },
-  dateSeparatorText: {
-    marginHorizontal: 16,
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '600',
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
+  messageList: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    flexGrow: 1,
   },
   loadingHeader: {
-    alignItems: 'center',
-    paddingVertical: 15,
-    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 16,
   },
-  loadingHeaderText: {
-    color: '#666',
-    fontSize: 12,
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  scrollHintText: {
-    color: '#999',
-    fontSize: 11,
-    fontWeight: '400',
+  loadingText: {
+    marginLeft: 8,
+    color: "#6A1B9A",
+    fontSize: 14,
   },
 });
 

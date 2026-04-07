@@ -1,3 +1,5 @@
+import logger from '../utils/logger';
+
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Clipboard } from 'react-native';
 
@@ -90,14 +92,14 @@ export const useOTPAutoFill = (
       const otp = extractOTP(clipboardContent);
 
       if (otp) {
-        console.log('✅ OTP detected from clipboard:', otp);
+        logger.info('✅ OTP detected from clipboard:', otp);
         onOTPDetected(otp);
         
         // Stop monitoring after successful detection
         stopMonitoring();
       }
     } catch (error) {
-      console.error('❌ Failed to read clipboard:', error);
+      logger.error('❌ Failed to read clipboard:', error);
     }
   };
 
@@ -106,17 +108,17 @@ export const useOTPAutoFill = (
    */
   const startMonitoring = () => {
     if (isMonitoring) {
-      console.log('⚠️ Already monitoring clipboard');
+      logger.info('⚠️ Already monitoring clipboard');
       return;
     }
 
     // iOS handles OTP automatically via textContentType
     if (Platform.OS === 'ios') {
-      console.log('📱 iOS: Auto OTP enabled via textContentType="oneTimeCode"');
-      console.log('💡 Clipboard monitoring also active as fallback');
+      logger.info('📱 iOS: Auto OTP enabled via textContentType="oneTimeCode"');
+      logger.info('💡 Clipboard monitoring also active as fallback');
     } else {
-      console.log('📋 Android: Clipboard monitoring active for OTP detection');
-      console.log('💡 Tip: Copy OTP from SMS for auto-fill');
+      logger.info('📋 Android: Clipboard monitoring active for OTP detection');
+      logger.info('💡 Tip: Copy OTP from SMS for auto-fill');
     }
 
     setIsMonitoring(true);
@@ -139,7 +141,7 @@ export const useOTPAutoFill = (
 
     setIsMonitoring(false);
     lastClipboardContent.current = '';
-    console.log('🛑 Stopped OTP monitoring');
+    logger.info('🛑 Stopped OTP monitoring');
   };
 
   /**

@@ -1,4 +1,5 @@
-import React from 'react';
+import logger from '../../utils/logger';
+
 import { View, Image, Text, StyleSheet } from 'react-native';
 
 /**
@@ -27,7 +28,9 @@ export const Avatar = ({
     borderRadius: sizeValue / 2,
   };
 
-  if (source && source.uri) {
+  // Check if source exists and has a valid uri
+  if (source && typeof source === 'object' && source.uri) {
+    logger.info('Avatar source URI:', source.uri);
     return (
       <Image
         source={source}
@@ -36,6 +39,7 @@ export const Avatar = ({
     );
   }
 
+  // Fallback to initials
   return (
     <View style={[styles.fallback, containerStyle, style]}>
       <Text style={[styles.initials, { fontSize: sizeValue / 2.5 }]}>

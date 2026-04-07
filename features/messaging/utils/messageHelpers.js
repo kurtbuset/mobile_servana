@@ -13,7 +13,7 @@ export const addDateSeparators = (messageList) => {
 
     if (msgDate !== lastDate) {
       messagesWithDates.push({
-        id: `date-${msgDate}-${Date.now()}`,
+        id: `date-${msgDate}`,
         type: 'date',
         date: msgDate,
       });

@@ -1,43 +1,109 @@
-import { useState, useCallback, useEffect } from "react";
+import logger from "../../../utils/logger";
+
+import { useState, useCallback, useEffect, useRef } from "react";
 import { messageAPI } from "../../../shared/api";
 import { addDateSeparators } from "../utils/messageHelpers";
 
 /**
  * Hook for managing message history with pagination
  * Token is automatically included in API requests via interceptor
+ * Modified to preserve messages for continuous chat experience
+ * @param {string} chatGroupId - The chat group ID
+ * @param {object} flatListRef - Reference to the FlatList
+ * @param {boolean} shouldLoad - Whether to load messages (e.g., only when screen is focused)
  */
-export const useMessageHistory = (chatGroupId, flatListRef) => {
+export const useMessageHistory = (chatGroupId, flatListRef, shouldLoad = true) => {
   const [messages, setMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [lastChatGroupId, setLastChatGroupId] = useState(null);
 
-  // Load messages with pagination
+  // Use refs to prevent callback recreation
+  const flatListRefRef = useRef(flatListRef);
+  const lastChatGroupIdRef = useRef(lastChatGroupId);
+  const isLoadingRef = useRef(isLoadingMessages);
+
+  // Update refs
+  useEffect(() => {
+    flatListRefRef.current = flatListRef;
+  }, [flatListRef]);
+
+  useEffect(() => {
+    lastChatGroupIdRef.current = lastChatGroupId;
+  }, [lastChatGroupId]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoadingMessages;
+  }, [isLoadingMessages]);
+
+  // Load messages with pagination - stable callback
   const loadMessages = useCallback(
     async (before = null, append = false) => {
-      if (!chatGroupId || isLoadingMessages) return;
+      if (!chatGroupId || isLoadingRef.current) return;
 
       try {
         setIsLoadingMessages(true);
 
         // Use centralized API
         const data = await messageAPI.getMessages(chatGroupId, {
-          limit: 10,
+          limit: 30,
           before,
         });
 
+        // Handle both old and new response formats
+        const messagesData = data.messages || data;
+        const paginationMeta = data.pagination;
+
         // Map messages to UI format
-        const mappedMessages = data.messages.map((m, index) => ({
-          id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`,
-          sender: m.client_id ? "user" : "admin",
-          content: m.chat_body,
-          timestamp: m.chat_created_at,
-          displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        }));
+        const mappedMessages = messagesData.map((m, index) => {
+          // Handle transfer messages
+          if (m.message_type === 'transfer') {
+            return {
+              id: m.chat_id,
+              sender: 'system',
+              sender_type: 'system',
+              message_type: 'transfer',
+              content: m.chat_body,
+              timestamp: m.chat_created_at,
+              displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              transfer_data: m.transfer_data,
+              isPending: false,
+            };
+          }
+
+          // Calculate status based on database fields
+          let status = "sent"; // Default status
+          if (m.chat_read_at) {
+            status = "read";
+          } else if (m.chat_delivered_at) {
+            status = "delivered";
+          }
+
+          // Determine sender for UI (user = client, admin = agent)
+          const sender = m.client_id ? "user" : "admin";
+
+          return {
+            id: m.chat_id ? `msg-${m.chat_id}` : `temp-${Date.now()}-${index}`,
+            sender: sender,
+            sender_type: m.sender_type || (m.client_id ? 'client' : 'agent'),
+            sender_name: m.sender_name || null,
+            sender_image: m.sender_image || null,
+            content: m.chat_body,
+            timestamp: m.chat_created_at,
+            displayTime: new Date(m.chat_created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            status: status,
+            chatId: m.chat_id,
+            isPending: false,
+          };
+        });
 
         if (append) {
           // Prepend older messages
@@ -51,47 +117,62 @@ export const useMessageHistory = (chatGroupId, flatListRef) => {
             return addDateSeparators(combined);
           });
         } else {
-          // Initial load
-          setMessages(addDateSeparators(mappedMessages));
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }, 100);
+          // For continuous chat: append to existing messages instead of replacing
+          if (lastChatGroupIdRef.current && lastChatGroupIdRef.current !== chatGroupId) {
+            // New chat group - append to existing messages
+            setMessages((prev) => {
+              const messagesOnly = prev.filter((m) => m.type !== "date");
+              const existingIds = new Set(messagesOnly.map((m) => m.id));
+              const newUniqueMessages = mappedMessages.filter(
+                (m) => !existingIds.has(m.id),
+              );
+              const combined = [...messagesOnly, ...newUniqueMessages];
+              return addDateSeparators(combined);
+            });
+          } else {
+            // Initial load or same chat group
+            setMessages(addDateSeparators(mappedMessages));
+          }
         }
 
-        // Update pagination state
-        setHasMoreMessages(data.hasMore);
-        if (mappedMessages.length > 0) {
-          setOldestMessageTimestamp(mappedMessages[0].timestamp);
+        // Update pagination state - use metadata if available
+        if (paginationMeta) {
+          setHasMoreMessages(paginationMeta.hasMore);
+          if (paginationMeta.oldestTimestamp) {
+            setOldestMessageTimestamp(paginationMeta.oldestTimestamp);
+          }
+        } else {
+          // Fallback to length-based check
+          setHasMoreMessages(messagesData.length === 30);
+          if (mappedMessages.length > 0) {
+            setOldestMessageTimestamp(mappedMessages[0].timestamp);
+          }
         }
       } catch (error) {
-        console.error("Error loading messages:", error);
+        logger.error("Error loading messages:", error);
       } finally {
         setIsLoadingMessages(false);
       }
     },
-    [chatGroupId, isLoadingMessages, flatListRef],
+    [chatGroupId],
   );
 
-  // Load more messages (pagination)
+  // Load more messages (pagination) - stable callback
   const loadMoreMessages = useCallback(async () => {
-    if (!hasMoreMessages || isLoadingMessages || !oldestMessageTimestamp)
+    if (!hasMoreMessages || isLoadingRef.current || !oldestMessageTimestamp)
       return;
 
-    console.log("Loading more messages...");
     await loadMessages(oldestMessageTimestamp, true);
-  }, [
-    hasMoreMessages,
-    isLoadingMessages,
-    oldestMessageTimestamp,
-    loadMessages,
-  ]);
+  }, [hasMoreMessages, oldestMessageTimestamp, loadMessages]);
 
-  // Load initial messages when chat group changes
+  // Load initial messages when chat group changes (only if shouldLoad is true)
   useEffect(() => {
-    if (chatGroupId) {
+    if (chatGroupId && shouldLoad) {
+      setLastChatGroupId(chatGroupId);
       loadMessages();
     }
-  }, [chatGroupId]);
+    // DON'T clear messages when chatGroupId becomes null - preserve for continuous chat
+  }, [chatGroupId, loadMessages, shouldLoad]);
 
   return {
     messages,

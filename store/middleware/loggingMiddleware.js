@@ -1,22 +1,12 @@
+import logger from '../../utils/logger';
+
 /**
  * Logging middleware for development
- * Logs all dispatched actions and state changes
+ * Logs dispatched actions with their payloads
  */
 export const loggingMiddleware = (store) => (next) => (action) => {
-  if (__DEV__) {
-    console.group(`🔄 Action: ${action.type}`);
-    console.log('Payload:', action.payload);
-    console.log('Previous State:', store.getState());
-  }
-
-  const result = next(action);
-
-  if (__DEV__) {
-    // console.log('Next State:', store.getState());
-    console.groupEnd();
-  }
-
-  return result;
+  logger.debug(`[Redux] ${action.type}`, action.payload);
+  return next(action);
 };
 
 export default loggingMiddleware;

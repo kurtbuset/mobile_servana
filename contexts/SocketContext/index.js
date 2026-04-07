@@ -1,9 +1,12 @@
-// Central export for Socket context
-export { SocketProvider, SocketContext } from './SocketProvider';
-export { useSocket } from './useSocket';
+/**
+ * Socket Context - Simplified
+ * Main export for socket functionality
+ */
 
-// Socket events (listeners for incoming events)
-export * from './events';
+// Context and Provider
+export { SocketProvider, SocketContext } from "./SocketProvider";
+export { useSocket } from "./useSocket";
 
-// Socket emitters (functions for outgoing events)
-export * from './emitters';
+// Socket emitters and event listeners
+export * from "./emitters";
+export { createSocket, clearSocket } from "./config";

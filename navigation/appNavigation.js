@@ -10,6 +10,9 @@ import {
   ProfileScreen as MyProfile,
   EditProfileScreen as EditProfile,
 } from "../screens/profile/index";
+import PostChatScreen from "../screens/messaging/PostChatScreen";
+import ChatHistoryScreen from "../screens/messaging/ChatHistoryScreen";
+import ChatHistoryDetailScreen from "../screens/messaging/ChatHistoryDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -97,6 +100,31 @@ const AppNavigation = () => {
             <Stack.Screen
               name={ROUTES.EDIT_PROFILE}
               component={EditProfile}
+              options={{
+                ...SLIDE_RIGHT,
+                ...SCREEN_OPTIONS.LIGHT_BG,
+              }}
+            />
+            <Stack.Screen
+              name={ROUTES.POST_CHAT}
+              component={PostChatScreen}
+              options={{
+                ...FADE,
+                ...SCREEN_OPTIONS.LIGHT_BG,
+                ...SCREEN_OPTIONS.NO_GESTURE,
+              }}
+            />
+            <Stack.Screen
+              name={ROUTES.CHAT_HISTORY}
+              component={ChatHistoryScreen}
+              options={{
+                ...SLIDE_RIGHT,
+                ...SCREEN_OPTIONS.LIGHT_BG,
+              }}
+            />
+            <Stack.Screen
+              name={ROUTES.CHAT_HISTORY_DETAIL}
+              component={ChatHistoryDetailScreen}
               options={{
                 ...SLIDE_RIGHT,
                 ...SCREEN_OPTIONS.LIGHT_BG,

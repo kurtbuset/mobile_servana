@@ -3,12 +3,19 @@ import { MESSAGE_ENDPOINTS } from './endpoints';
 
 /**
  * Get messages for a chat group with pagination
+ * @param {string} chatGroupId - Chat group ID
+ * @param {Object} options - Pagination options
+ * @param {number} options.limit - Number of messages (default: 30, max: 100)
+ * @param {string} options.before - Timestamp for cursor-based pagination
+ * @returns {Promise<Object>} Messages array and pagination metadata
  */
 export const getMessages = async (chatGroupId, options = {}) => {
-  const { limit = 10, before = null } = options;
+  const { limit = 30, before = null } = options;
+  const MAX_LIMIT = 100;
+  const safeLimit = Math.min(limit, MAX_LIMIT);
   
   let url = MESSAGE_ENDPOINTS.GET_MESSAGES(chatGroupId);
-  const params = new URLSearchParams({ limit: limit.toString() });
+  const params = new URLSearchParams({ limit: safeLimit.toString() });
   
   if (before) {
     params.append('before', before);
@@ -61,6 +68,25 @@ export const markAsRead = async (messageId) => {
   return response.data;
 };
 
+/**
+ * End/Resolve chat group
+ */
+export const endChatGroup = async (chatGroupId, feedbackData = {}) => {
+  const response = await apiClient.patch(
+    MESSAGE_ENDPOINTS.END_CHAT_GROUP(chatGroupId),
+    feedbackData
+  );
+  return response.data;
+};
+
+/**
+ * Get resolved chat history for current client
+ */
+export const getResolvedChats = async () => {
+  const response = await apiClient.get(MESSAGE_ENDPOINTS.GET_RESOLVED_CHATS);
+  return response.data;
+};
+
 export default {
   getMessages,
   sendMessage,
@@ -68,4 +94,6 @@ export default {
   getLatestChatGroup,
   createChatGroup,
   markAsRead,
+  endChatGroup,
+  getResolvedChats,
 };

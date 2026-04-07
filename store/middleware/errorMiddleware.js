@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 import { showToast } from '../slices/ui/uiSlice';
 
 /**
@@ -18,7 +20,7 @@ export const errorMiddleware = (store) => (next) => (action) => {
       })
     );
 
-    console.error('Error caught by middleware:', {
+    logger.error('Error caught by middleware:', {
       action: action.type,
       error: errorMessage,
     });

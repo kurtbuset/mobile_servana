@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Avatar } from '../../../components/ui';
 import Feather from 'react-native-vector-icons/Feather';
@@ -12,14 +11,19 @@ export const ProfileHeader = ({
   onImagePress,
   editable = true,
 }) => {
+  // logger.info('profilaswwde: ', JSON.stringify(profile, null, 2))
   const fullName = profile
     ? `${profile.prof_firstname || ''} ${profile.prof_lastname || ''}`.trim()
     : 'User';
 
-  const imageSource = profile?.prof_picture
+  // Use current_image from image table if available, fallback to prof_picture
+  const imageSource = profile?.current_image?.img_location
+    ? { uri: profile.current_image.img_location }
+    : profile?.prof_picture
     ? { uri: profile.prof_picture }
     : null;
 
+  // logger.info('imageSource:', imageSource);
   return (
     <View style={styles.container}>
       <TouchableOpacity

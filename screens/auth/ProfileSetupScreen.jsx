@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 import React, { useState } from "react";
 import {
   View,
@@ -96,7 +98,7 @@ export default function ProfileSetupScreen() {
         firstname: name.trim(),
       });
     } catch (err) {
-      console.error("Complete profile error:", err);
+      logger.error("Complete profile error:", err);
       setError(
         err.response?.data?.error ||
           "Failed to save profile. Please try again.",

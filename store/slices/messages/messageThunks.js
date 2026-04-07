@@ -15,6 +15,7 @@ export const loadMessagesThunk = createAsyncThunk(
   async ({ chatGroupId, before = null }, { dispatch, rejectWithValue }) => {
     try {
       const options = { limit: 20, before };
+      console.log('message loading first')
       const data = await messageAPI.getMessages(chatGroupId, options);
 
       const mappedMessages = data.messages.map((m, index) => ({
