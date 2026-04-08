@@ -76,6 +76,27 @@ const MessagesScreen = React.memo(() => {
     setShouldAutoScroll,
   } = messageHistory;
 
+  // Handle chat resolved event - navigate to PostChatScreen
+  const handleChatResolved = useCallback((data) => {
+    
+    // Calculate chat stats
+    const stats = formatChatStats(historyMessages, clientId);
+    
+    // Navigate to PostChatScreen with chat data
+    navigation.navigate('PostChat', {
+      chatDuration: stats.duration || null,
+      messageCount: stats.messageCount || 0,
+      rating: null,
+      feedback: null,
+    });
+    
+    // Reset chat group after navigation
+    setTimeout(() => {
+      resetChatGroup();
+      loadDepartments();
+    }, 1000);
+  }, [historyMessages, clientId, navigation, resetChatGroup, loadDepartments]);
+
   // Socket integration - pass setMessages directly from messageHistory
   const socketHandlers = useMessageSocket(
     socket,
@@ -84,6 +105,7 @@ const MessagesScreen = React.memo(() => {
     setMessages, // Use setMessages from messageHistory directly
     shouldAutoScroll,
     flatListRef,
+    handleChatResolved, // Pass callback for chat:resolved event
   );
 
   const sendMessage = useSendMessage(socket, chatGroupId, clientId);

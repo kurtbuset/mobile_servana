@@ -96,7 +96,6 @@ export const registerMessageEvents = (socket, callbacks = {}) => {
   };
 
   const handleChatResolved = (data) => {
-    logger.info("✅ Chat resolved:", data);
     if (onChatResolved) onChatResolved(data);
   };
 
