@@ -18,18 +18,25 @@ export const createSocket = async () => {
   const jitter = Math.random() * 4000;
 
   socketInstance = io(SOCKET_CONFIG.URL, {
-    transports: ["websocket", "polling"],
+    // Use polling first for better mobile/production compatibility
+    transports: SOCKET_CONFIG.TRANSPORTS || ["polling", "websocket"],
     autoConnect: false,
     auth: token ? { token } : undefined,
     extraHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
     reconnection: SOCKET_CONFIG.RECONNECTION,
     reconnectionAttempts: SOCKET_CONFIG.RECONNECTION_ATTEMPTS,
     reconnectionDelay: baseDelay + jitter,
-    reconnectionDelayMax: 10000,
+    reconnectionDelayMax: SOCKET_CONFIG.RECONNECTION_DELAY_MAX || 10000,
     randomizationFactor: 0.5,
     timeout: SOCKET_CONFIG.TIMEOUT,
+    // Explicit path for Socket.IO endpoint
+    path: SOCKET_CONFIG.PATH || '/socket.io/',
+    // Mobile-friendly settings
     upgrade: true,
     rememberUpgrade: true,
+    // Increase ping settings for mobile networks
+    pingTimeout: SOCKET_CONFIG.PING_TIMEOUT || 60000,
+    pingInterval: SOCKET_CONFIG.PING_INTERVAL || 25000,
   });
 
   socketInstance.io.on("reconnect_attempt", (attempt) => {

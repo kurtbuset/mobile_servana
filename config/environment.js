@@ -16,7 +16,7 @@ const getBaseURL = () => {
 
   if (ENV.IS_WEB) return 'http://localhost:5000';
   if (ENV.DEV) return 'http://192.168.137.2:5000';
-  return 'https://api.servana.com';
+  return 'https://backend-servana.onrender.com';
 };
 
 export const API_CONFIG = {
@@ -27,9 +27,17 @@ export const API_CONFIG = {
 export const SOCKET_CONFIG = {
   URL: API_CONFIG.BASE_URL,
   RECONNECTION: true,
-  RECONNECTION_ATTEMPTS: 5,
-  RECONNECTION_DELAY: 1000,
-  TIMEOUT: 20000,
+  RECONNECTION_ATTEMPTS: 10,
+  RECONNECTION_DELAY: 2000,
+  RECONNECTION_DELAY_MAX: 10000,
+  TIMEOUT: 30000,
+  // Force polling first for better mobile compatibility
+  TRANSPORTS: ['polling', 'websocket'],
+  // Add path explicitly
+  PATH: '/socket.io/',
+  // Increase ping settings for mobile networks
+  PING_TIMEOUT: 60000,
+  PING_INTERVAL: 25000,
 };
 
 export default { ENV, API_CONFIG, SOCKET_CONFIG };
